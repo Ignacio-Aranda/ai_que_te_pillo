@@ -126,7 +126,7 @@ Estado del Bloque II. Las filas marcadas *(previsto)* son datos que la aplicaci�
 | Copia de seguridad | Copia automática en la nube de Google, o `adb backup` sobre la variante de depuración | Nada: `allowBackup="true"` con reglas vacías, así que se copian el token y la base de datos | Sesión 3.3 · P3.1 |
 | Registros | `adb logcat \| grep -i -E "Repositorio\|okhttp"` | Nada: salen el usuario, la contraseña, el token y los cuerpos de todas las respuestas | Sesión 3.6 |
 | Vista de recientes y capturas | Botón de recientes del sistema, o una captura de pantalla | Protegida: `FLAG_SECURE` en `MainActivity` deja la miniatura en negro y bloquea las capturas | Sesión 3.6 |
-| Permiso de cámara | Botón «Conceder permiso» del listado | El sistema pide el permiso en tiempo de ejecución y la app sigue funcionando si se deniega. Hoy no se usa para nada: queda concedido sin función que lo necesite | Bloque III · Bloque IV |
+| Permiso de cámara | Botón «HACER FOTO» de la misión activa | El sistema pide el permiso en tiempo de ejecución y la app sigue funcionando si se deniega. Hoy no se usa para nada: queda concedido sin función que lo necesite | Bloque III · Bloque IV |
 | Enlace `aiquetepillo://unirse/{codigo}` *(previsto)* | Un enlace compartido con el selector de Android | Debe llevar a una pantalla de confirmación y no unir sin aceptar. Con 6 caracteres el código se puede adivinar por fuerza bruta contra la API | Sesión 3.4 · Bloque IV |
 | Subida de fotos y envío al proveedor de IA *(previsto)* | Desde la app, o con `curl` contra el endpoint de subida | Pendiente de diseñar: tamaño, tipo de fichero y que la foto sea de la misión propia. Una foto trucada podría engañar al modelo de visión | Sesión 3.5 · Bloque IV |
 
