@@ -55,20 +55,21 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     /**
      * Cierre de sesión.
      *
-     * Pide al repositorio que borre la sesión y devuelve las dos pantallas a
-     * Reposo. Lo segundo no es decorativo: si el estado de acceso se quedara
-     * en Exito, la navegación volvería a entrar sola en la lista.
+     * Devuelve las pantallas a Reposo y después pide al repositorio que borre
+     * la sesión. El orden no es decorativo: si el estado de acceso siguiera en
+     * Exito mientras se borra la copia local, la pantalla de acceso volvería a
+     * entrar sola en la lista.
      *
      * PARA EL CUADERNO: además del estado del modelo de vista y del token,
      * ¿qué otros rastros del usuario quedan en el dispositivo? Haz la lista
      * antes de seguir y compruébala en la sección 5.5.
      */
     fun salir() {
+        _estadoLogin.value = EstadoUi.Reposo
+        _estadoLista.value = EstadoUi.Reposo
+        _estadoDetalle.value = EstadoUi.Reposo
         viewModelScope.launch {
             repositorio.cerrarSesion()
-            _estadoLogin.value = EstadoUi.Reposo
-            _estadoLista.value = EstadoUi.Reposo
-            _estadoDetalle.value = EstadoUi.Reposo
         }
     }
 }

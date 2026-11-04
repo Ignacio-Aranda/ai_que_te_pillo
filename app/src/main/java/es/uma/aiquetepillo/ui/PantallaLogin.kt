@@ -1,16 +1,22 @@
 package es.uma.aiquetepillo.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import es.uma.aiquetepillo.modelo.*
+import es.uma.aiquetepillo.ui.juego.*
+import es.uma.aiquetepillo.ui.theme.Amarillo
 
 /**
- * Pantalla de acceso. ESTÁ TERMINADA: no hace falta tocarla en P2.2.
+ * Pantalla de acceso.
  *
  * Sigue el patrón de elevación de estado de la sesión 2.5: el composable no
  * guarda el resultado de la operación, lo recibe, y comunica lo que ocurre
@@ -23,52 +29,47 @@ fun PantallaLogin(
 ) {
     var usuario by remember { mutableStateOf("") }
     var clave by remember { mutableStateOf("") }
+    val cargando = estado is EstadoUi.Cargando
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Acceso", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(24.dp))
-
-        OutlinedTextField(
-            value = usuario,
-            onValueChange = { usuario = it },
-            label = { Text("Usuario") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = clave,
-            onValueChange = { clave = it },
-            label = { Text("Contraseña") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(20.dp))
-
-        Button(
-            onClick = { onEntrar(usuario.trim(), clave) },
-            enabled = usuario.isNotBlank() && clave.isNotBlank() && estado !is EstadoUi.Cargando,
-            modifier = Modifier.fillMaxWidth()
+    FondoJuego {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(if (estado is EstadoUi.Cargando) "Entrando..." else "Entrar")
-        }
+            Medallon("📸", tamano = 96.dp)
+            Spacer(Modifier.height(16.dp))
+            TextoJuego("AI QUE", tamano = 38.sp, grosor = 10f)
+            TextoJuego("TE PILLO", tamano = 46.sp, color = Amarillo, grosor = 12f)
+            Spacer(Modifier.height(28.dp))
 
-        Spacer(Modifier.height(16.dp))
+            TarjetaJuego(Modifier.fillMaxWidth()) {
+                TextoJuego("ACCESO", Modifier.align(Alignment.CenterHorizontally), tamano = 22.sp)
+                Spacer(Modifier.height(16.dp))
+                CampoJuego(usuario, { usuario = it }, "Usuario")
+                Spacer(Modifier.height(12.dp))
+                CampoJuego(clave, { clave = it }, "Contraseña", secreto = true)
+            }
+            Spacer(Modifier.height(24.dp))
 
-        // El when es exhaustivo gracias a la clase sellada del TODO 1b
-        when (estado) {
-            is EstadoUi.Error -> Text(
-                text = textoDeError(estado.motivo),
-                color = MaterialTheme.colorScheme.error
+            BotonGrande(
+                texto = if (cargando) "ENTRANDO..." else "ENTRAR",
+                onClick = { onEntrar(usuario.trim(), clave) },
+                habilitado = usuario.isNotBlank() && clave.isNotBlank() && !cargando
             )
-            is EstadoUi.Cargando -> CircularProgressIndicator()
-            else -> Unit
+            Spacer(Modifier.height(16.dp))
+
+            // El when es exhaustivo gracias a la clase sellada de EstadoUi
+            when (estado) {
+                is EstadoUi.Error -> Aviso(textoDeError(estado.motivo))
+                is EstadoUi.Cargando -> CircularProgressIndicator(color = Color.White)
+                else -> Unit
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package es.uma.aiquetepillo.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavType
@@ -32,15 +33,20 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 estado = estadoLogin,
                 onEntrar = { usuario, clave -> vistaModelo.entrar(usuario, clave) }
             )
-            if (estadoLogin is EstadoUi.Exito) {
-                navController.navigate("lista") {
-                    popUpTo("login") { inclusive = true }
+            // La navegación es un efecto: dentro de LaunchedEffect se lanza una
+            // sola vez por cambio de estado, no en cada redibujado de la pantalla.
+            LaunchedEffect(estadoLogin) {
+                if (estadoLogin is EstadoUi.Exito) {
+                    navController.navigate("lista") {
+                        popUpTo("login") { inclusive = true }
+                    }
                 }
             }
         }
 
         composable("lista") {
             PantallaLista(
+                nombre = (estadoLogin as? EstadoUi.Exito)?.datos?.nombre.orEmpty(),
                 estado = estadoLista,
                 onRecargar = { vistaModelo.cargarMisiones() },
                 onSalir = {

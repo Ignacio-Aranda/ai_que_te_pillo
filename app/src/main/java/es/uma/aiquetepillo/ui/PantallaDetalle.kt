@@ -1,13 +1,21 @@
 package es.uma.aiquetepillo.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import es.uma.aiquetepillo.modelo.*
+import es.uma.aiquetepillo.ui.juego.*
+import es.uma.aiquetepillo.ui.theme.MoradoClaro
+import es.uma.aiquetepillo.ui.theme.MoradoOscuro
 
 /* ==========================================================================
    PANTALLA DE DETALLE
@@ -37,7 +45,6 @@ import es.uma.aiquetepillo.modelo.*
  * Fíjate en los parámetros: `id` es una referencia, no contenido. Por la ruta
  * de navegación viaja el identificador y nada más, que es la regla 2.5.3.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaDetalle(
     id: Int,
@@ -59,44 +66,56 @@ fun PantallaDetalle(
      */
     LaunchedEffect(id) { onCargar(id) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Misión $id") },
-                navigationIcon = {
-                    TextButton(onClick = onVolver) { Text("Volver") }
-                }
-            )
-        }
-    ) { relleno ->
-        Box(
-            modifier = Modifier.fillMaxSize().padding(relleno),
-            contentAlignment = Alignment.Center
-        ) {
-            /*
-             * El when cubre las cuatro variantes de la interfaz sellada y NO
-             * lleva else. Si mañana añades un estado nuevo a EstadoUi, el
-             * compilador se parará aquí y te obligará a decidir qué se muestra.
-             * Compara esto con el when de PantallaLogin.kt, que sí tiene un
-             * else: allí un estado nuevo pasaría desapercibido.
-             */
-            when (estado) {
-                is EstadoUi.Reposo -> CircularProgressIndicator()
-                is EstadoUi.Cargando -> CircularProgressIndicator()
+    FondoJuego {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BotonRedondo("⬅️", "Volver", onVolver)
+                Spacer(Modifier.weight(1f))
+                TextoJuego("MISIÓN $id", tamano = 20.sp)
+            }
 
-                is EstadoUi.Error -> Text(
-                    text = mensajeDeError(estado.motivo),
-                    color = MaterialTheme.colorScheme.error
-                )
+            Box(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                /*
+                 * El when cubre las cuatro variantes de la interfaz sellada y NO
+                 * lleva else. Si mañana añades un estado nuevo a EstadoUi, el
+                 * compilador se parará aquí y te obligará a decidir qué se muestra.
+                 * Compara esto con el when de PantallaLogin.kt, que sí tiene un
+                 * else: allí un estado nuevo pasaría desapercibido.
+                 */
+                when (estado) {
+                    is EstadoUi.Reposo -> CircularProgressIndicator(color = Color.White)
+                    is EstadoUi.Cargando -> CircularProgressIndicator(color = Color.White)
 
-                is EstadoUi.Exito -> Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp)
-                ) {
-                    Text(estado.datos.titulo, style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(12.dp))
-                    Text(estado.datos.descripcion, style = MaterialTheme.typography.bodyLarge)
-                    Spacer(Modifier.height(12.dp))
-                    Text(puntosTexto(estado.datos.puntos), style = MaterialTheme.typography.labelMedium)
+                    is EstadoUi.Error -> Aviso(mensajeDeError(estado.motivo))
+
+                    is EstadoUi.Exito -> TarjetaJuego(Modifier.fillMaxWidth(), fondo = MoradoOscuro) {
+                        Medallon("🕵️", Modifier.align(Alignment.CenterHorizontally), tamano = 120.dp, fondo = MoradoClaro)
+                        Spacer(Modifier.height(16.dp))
+                        TextoJuego(estado.datos.titulo, Modifier.fillMaxWidth(), tamano = 28.sp, grosor = 9f)
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            estado.datos.descripcion,
+                            color = Color.White,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Pastilla("⭐", puntosTexto(estado.datos.puntos), Modifier.align(Alignment.CenterHorizontally))
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Creada el ${estado.datos.fecha}",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 12.sp,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    }
                 }
             }
         }
