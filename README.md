@@ -78,12 +78,12 @@ Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y Pytho
 
 ## Reconocimiento de una aplicación real (P2.1, sección 5.4)
 
-Pendiente de completar.
+App analizada: **Frunk** (`com.frunk_ignacioaranda`, versionName "Version 3", versionCode 3), una app de minijuegos para grupos (ruleta, dado, moneda, trivial…). Instalada desde Google Play (`installerPackageName=com.android.vending`) en un Pixel 7a. Los APK se sacaron con `adb pull` de las rutas que devuelve `pm path`.
 
 | Qué mirar | Con qué | Observación |
 |---|---|---|
-| Permisos declarados | `aapt2 dump permissions` | |
-| Componentes exportados | `apktool` + lectura del manifiesto | |
-| Esquemas de firma | `apksigner verify --print-certs` | |
-| `minSdk` y `targetSdk` | `aapt2 dump badging` | |
-| Número de piezas instaladas | `adb shell pm path` | |
+| Permisos declarados | `aapt2 dump permissions` | 12 `uses-permission`. Peligrosos: `CAMERA` y `WRITE_EXTERNAL_STORAGE` (este último sin `maxSdkVersion`, pero con `targetSdk` 34 no da nada a partir de Android 11). Normales: `INTERNET`, `ACCESS_NETWORK_STATE`, `VIBRATE`, `WAKE_LOCK`, `FOREGROUND_SERVICE`. Publicidad: `AD_ID` y `ACCESS_ADSERVICES_AD_ID`/`_ATTRIBUTION`/`_TOPICS`, que añade el SDK de Google Mobile Ads al fusionar manifiestos. El último es `com.frunk_ignacioaranda.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, que la app declara y usa ella misma (lo genera AndroidX para los receptores dinámicos). |
+| Componentes exportados | `apktool` + lectura del manifiesto | 43 componentes (24 actividades, 8 servicios, 8 receptores, 3 proveedores); solo 3 exportados: `ActividadHome` (la del lanzador, `MAIN`/`LAUNCHER`), `SystemJobService` de WorkManager (protegido con `BIND_JOB_SERVICE`) y `DiagnosticsReceiver` de WorkManager (protegido con `DUMP`). Ninguno queda abierto a otras apps salvo la actividad de inicio. Los 3 proveedores (Firebase, Mobile Ads, AndroidX Startup) son `exported="false"`. Otros datos del manifiesto: `allowBackup="true"` con reglas de copia vacías (se copia todo), no es `debuggable` y no declara `networkSecurityConfig`. |
+| Esquemas de firma | `apksigner verify --print-certs` | Firma v2 y v3; v1 (JAR), v3.1 y v4 no. Un firmante, RSA 4096, certificado `CN=Android, OU=Android, O=Google Inc.`: es la clave de Play App Signing, así que Google firma la app, no el desarrollador. SHA-256 del certificado: `8141a9d0…e6c64397`. Lleva también *Source Stamp* de Google Play. |
+| `minSdk` y `targetSdk` | `aapt2 dump badging` | `minSdk` 26 (Android 8.0), `targetSdk` 34 (Android 14), `compileSdk` 34. |
+| Número de piezas instaladas | `adb shell pm path` | 5 piezas, porque se instaló como App Bundle desde Play: `base.apk` (25 MB, con 3 `classes*.dex`) y 4 *splits* de configuración: `split_config.arm64_v8a.apk` (ABI), `split_config.xxhdpi.apk` (densidad), `split_config.en.apk` y `split_config.es.apk` (idiomas). |
