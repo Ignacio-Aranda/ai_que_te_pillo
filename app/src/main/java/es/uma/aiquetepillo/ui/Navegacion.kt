@@ -42,21 +42,21 @@ fun Navegacion(vistaModelo: VistaModelo) {
         composable("lista") {
             PantallaLista(
                 estado = estadoLista,
-                onRecargar = { vistaModelo.cargarElementos() },
+                onRecargar = { vistaModelo.cargarMisiones() },
                 onSalir = {
                     vistaModelo.salir()
                     navController.navigate("login") {
                         popUpTo("lista") { inclusive = true }
                     }
                 },
-                onAbrir = { identificador -> navController.navigate("detalle/$identificador") }
+                onAbrir = { identificador -> navController.navigate("mision/$identificador") }
             )
         }
 
         composable(
-            route = "detalle/{id}",
+            route = "mision/{id}",
             arguments = listOf(navArgument("id") { type = NavType.IntType }),
-            deepLinks = listOf(navDeepLink { uriPattern = "aiquetepillo://detalle/{id}" })
+            deepLinks = listOf(navDeepLink { uriPattern = "aiquetepillo://mision/{id}" })
         ) { entrada ->
             val id = entrada.arguments?.getInt("id") ?: 0
             PantallaDetalle(

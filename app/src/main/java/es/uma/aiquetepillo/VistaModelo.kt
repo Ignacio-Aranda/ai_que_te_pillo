@@ -25,11 +25,11 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     private val _estadoLogin = MutableStateFlow<EstadoUi<RespuestaLogin>>(EstadoUi.Reposo)
     val estadoLogin: StateFlow<EstadoUi<RespuestaLogin>> = _estadoLogin.asStateFlow()
 
-    private val _estadoLista = MutableStateFlow<EstadoUi<List<Elemento>>>(EstadoUi.Reposo)
-    val estadoLista: StateFlow<EstadoUi<List<Elemento>>> = _estadoLista.asStateFlow()
+    private val _estadoLista = MutableStateFlow<EstadoUi<List<Mision>>>(EstadoUi.Reposo)
+    val estadoLista: StateFlow<EstadoUi<List<Mision>>> = _estadoLista.asStateFlow()
 
-    private val _estadoDetalle = MutableStateFlow<EstadoUi<Elemento>>(EstadoUi.Reposo)
-    val estadoDetalle: StateFlow<EstadoUi<Elemento>> = _estadoDetalle.asStateFlow()
+    private val _estadoDetalle = MutableStateFlow<EstadoUi<Mision>>(EstadoUi.Reposo)
+    val estadoDetalle: StateFlow<EstadoUi<Mision>> = _estadoDetalle.asStateFlow()
 
     fun entrar(usuario: String, clave: String) {
         viewModelScope.launch {
@@ -38,17 +38,17 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
         }
     }
 
-    fun cargarElementos() {
+    fun cargarMisiones() {
         viewModelScope.launch {
             _estadoLista.value = EstadoUi.Cargando
-            _estadoLista.value = repositorio.obtenerElementos()
+            _estadoLista.value = repositorio.obtenerMisiones()
         }
     }
 
     fun cargarDetalle(id: Int) {
         viewModelScope.launch {
             _estadoDetalle.value = EstadoUi.Cargando
-            _estadoDetalle.value = repositorio.obtenerElemento(id)
+            _estadoDetalle.value = repositorio.obtenerMision(id)
         }
     }
 

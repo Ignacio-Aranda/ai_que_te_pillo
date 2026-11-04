@@ -40,13 +40,14 @@ USUARIOS = {
 
 _lock = threading.Lock()
 _siguiente_id = 4
-ELEMENTOS = {
+# Misiones de ejemplo; los puntos dependen de la dificultad: 1 (fácil), 3 (media) o 5 (difícil)
+MISIONES = {
     "ana": [
-        {"id": 1, "titulo": "Contraseña del router", "contenido": "wifi-casa: Marzo2019!", "fecha": "2024-03-11"},
-        {"id": 2, "titulo": "Cuenta bancaria", "contenido": "ES91 2100 0418 4502 0005 1332", "fecha": "2024-04-02"},
+        {"id": 1, "titulo": "Pilla a Luis bebiendo agua", "descripcion": "Haz una foto a Luis con un vaso de agua en la mano.", "puntos": 1, "fecha": "2026-11-04"},
+        {"id": 2, "titulo": "Pilla a Luis haciendo el pino", "descripcion": "Consigue una foto de Luis boca abajo, sin ayuda.", "puntos": 5, "fecha": "2026-11-05"},
     ],
     "luis": [
-        {"id": 3, "titulo": "Notas de la reunión", "contenido": "Revisar el contrato antes del viernes", "fecha": "2024-05-20"},
+        {"id": 3, "titulo": "Pilla a Ana bailando", "descripcion": "Haz una foto a Ana bailando en medio de la habitación.", "puntos": 3, "fecha": "2026-11-05"},
     ],
     "admin": [],
 }
@@ -98,11 +99,11 @@ class Manejador(BaseHTTPRequestHandler):
         if ruta == "/api/salud":
             return self._responder(200, {"estado": "ok", "servicio": "backend de prácticas"})
 
-        if ruta == "/api/elementos":
+        if ruta == "/api/misiones":
             usuario = self._usuario_autenticado()
             if usuario is None:
                 return self._responder(401, {"error": "Token ausente o no válido"})
-            return self._responder(200, {"elementos": ELEMENTOS.get(usuario, [])})
+            return self._responder(200, {"misiones": MISIONES.get(usuario, [])})
 
         if ruta == "/api/perfil":
             usuario = self._usuario_autenticado()
@@ -124,14 +125,14 @@ class Manejador(BaseHTTPRequestHandler):
                 for k, v in USUARIOS.items()
             ]})
 
-        m = re.match(r"^/api/elementos/(\d+)$", ruta)
+        m = re.match(r"^/api/misiones/(\d+)$", ruta)
         if m:
             usuario = self._usuario_autenticado()
             if usuario is None:
                 return self._responder(401, {"error": "Token ausente o no válido"})
             idn = int(m.group(1))
-            # No comprueba que el elemento pertenezca al usuario: intencionado
-            for lista in ELEMENTOS.values():
+            # No comprueba que la misión pertenezca al usuario: intencionado
+            for lista in MISIONES.values():
                 for e in lista:
                     if e["id"] == idn:
                         return self._responder(200, e)
@@ -160,7 +161,7 @@ class Manejador(BaseHTTPRequestHandler):
                 "rol": USUARIOS[usuario]["rol"]
             })
 
-        if ruta == "/api/elementos":
+        if ruta == "/api/misiones":
             usuario = self._usuario_autenticado()
             if usuario is None:
                 return self._responder(401, {"error": "Token ausente o no válido"})
@@ -169,11 +170,12 @@ class Manejador(BaseHTTPRequestHandler):
                 nuevo = {
                     "id": _siguiente_id,
                     "titulo": cuerpo.get("titulo", "(sin título)"),
-                    "contenido": cuerpo.get("contenido", ""),
+                    "descripcion": cuerpo.get("descripcion", ""),
+                    "puntos": int(cuerpo.get("puntos", 1)),
                     "fecha": time.strftime("%Y-%m-%d")
                 }
                 _siguiente_id += 1
-            ELEMENTOS.setdefault(usuario, []).append(nuevo)
+            MISIONES.setdefault(usuario, []).append(nuevo)
             return self._responder(201, nuevo)
 
         return self._responder(404, {"error": "Ruta no encontrada", "ruta": ruta})

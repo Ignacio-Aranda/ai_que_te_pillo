@@ -32,12 +32,12 @@ El dato más sensible son las fotos de personas: el selfie de registro es un dat
 
 El código parte del proyecto base de las prácticas P2.2 y P2.3, con sus cambios aplicados:
 
-- Inicio de sesión, listado y pantalla de detalle con Jetpack Compose, navegación con argumentos de ruta y enlace profundo `aiquetepillo://detalle/{id}`.
+- Inicio de sesión, listado de misiones y pantalla de detalle con Jetpack Compose, navegación con argumentos de ruta y enlace profundo `aiquetepillo://mision/{id}`.
 - Persistencia local con Room y sesión en `SharedPreferences`, con el cierre de sesión que borra también la copia local (P2.2, sección 5.6).
 - Permiso de cámara solicitado en tiempo de ejecución; si se deniega, la aplicación sigue funcionando sin esa función.
 - La ventana está marcada como segura (`FLAG_SECURE`).
 
-El modelo de datos todavía es el del proyecto base (`Elemento`). El siguiente paso es adaptarlo al dominio del juego (`Mision`, `Grupo`, `Miembro`) y ampliar el backend.
+El modelo de datos ya está adaptado al dominio: la aplicación y el backend trabajan con misiones (`Mision`: título, descripción, puntos según la dificultad y fecha). Faltan los grupos, los miembros, la generación de misiones con IA y la verificación de las fotos.
 
 La aplicación es **deliberadamente insegura** en el Bloque II: guarda el token y los datos en claro, registra las peticiones completas en logcat y usa HTTP sin cifrar. Cada uno de esos puntos se corrige en el Bloque III. No debe usarse fuera del aula ni exponerse a Internet.
 

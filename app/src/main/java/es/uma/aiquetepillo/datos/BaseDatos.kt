@@ -7,7 +7,7 @@ import androidx.room.*
    LA BASE DE DATOS LOCAL
    Teoría: sesión 2.2.5 y 2.5.5.
 
-   La aplicación guarda una copia local de los elementos descargados para poder
+   La aplicación guarda una copia local de las misiones descargadas para poder
    mostrarlos cuando no hay conexión. Room es una capa sobre SQLite que escribe
    el SQL por ti y comprueba las consultas al compilar.
 
@@ -21,13 +21,14 @@ import androidx.room.*
  *
  * Fíjate en el campo `propietario`, que no viene del backend: lo añadimos
  * nosotros para saber de qué usuario son los datos. Sin él, al entrar con otra
- * cuenta en el mismo dispositivo se verían mezclados los elementos de las dos.
+ * cuenta en el mismo dispositivo se verían mezcladas las misiones de las dos.
  */
-@Entity(tableName = "elementos")
-data class ElementoEntidad(
+@Entity(tableName = "misiones")
+data class MisionEntidad(
     @PrimaryKey val id: Int,
     val titulo: String,
-    val contenido: String,
+    val descripcion: String,
+    val puntos: Int,
     val fecha: String,
     val propietario: String
 )
@@ -41,25 +42,25 @@ data class ElementoEntidad(
  * convertida en una restricción del lenguaje.
  */
 @Dao
-interface ElementoDao {
+interface MisionDao {
 
-    /** Los elementos de un propietario, del más reciente al más antiguo. */
-    @Query("SELECT * FROM elementos WHERE propietario = :propietario ORDER BY fecha DESC")
-    suspend fun obtenerDe(propietario: String): List<ElementoEntidad>
+    /** Las misiones de un propietario, de la más reciente a la más antigua. */
+    @Query("SELECT * FROM misiones WHERE propietario = :propietario ORDER BY fecha DESC")
+    suspend fun obtenerDe(propietario: String): List<MisionEntidad>
 
     /** Inserta una lista; si ya existe una fila con ese id, la reemplaza. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun guardar(elementos: List<ElementoEntidad>)
+    suspend fun guardar(misiones: List<MisionEntidad>)
 
     /** Borra todo lo de un propietario. Existe; otra cosa es que alguien la llame. */
-    @Query("DELETE FROM elementos WHERE propietario = :propietario")
+    @Query("DELETE FROM misiones WHERE propietario = :propietario")
     suspend fun borrarDe(propietario: String)
 }
 
-@Database(entities = [ElementoEntidad::class], version = 1, exportSchema = false)
+@Database(entities = [MisionEntidad::class], version = 1, exportSchema = false)
 abstract class BaseDatos : RoomDatabase() {
 
-    abstract fun elementoDao(): ElementoDao
+    abstract fun misionDao(): MisionDao
 
     companion object {
 
@@ -79,7 +80,7 @@ abstract class BaseDatos : RoomDatabase() {
                 ).build().also { instancia = it }
             }
 
-        /** El fichero acaba en /data/data/<tu.paquete>/databases/appbase.db */
-        const val NOMBRE_FICHERO = "appbase.db"
+        /** El fichero acaba en /data/data/<tu.paquete>/databases/aiquetepillo.db */
+        const val NOMBRE_FICHERO = "aiquetepillo.db"
     }
 }

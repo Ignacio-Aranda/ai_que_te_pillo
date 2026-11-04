@@ -36,14 +36,14 @@ interface ApiServicio {
      * La cabecera de autorización viaja como parámetro: quien llame tiene que
      * componer el valor "Bearer <token>". Lo hace el Repositorio.
      */
-    @GET("api/elementos")
-    suspend fun elementos(@Header("Authorization") autorizacion: String): RespuestaElementos
+    @GET("api/misiones")
+    suspend fun misiones(@Header("Authorization") autorizacion: String): RespuestaMisiones
 
-    @GET("api/elementos/{id}")
-    suspend fun elemento(
+    @GET("api/misiones/{id}")
+    suspend fun mision(
         @Header("Authorization") autorizacion: String,
         @Path("id") id: Int
-    ): Elemento
+    ): Mision
 
     @GET("api/perfil")
     suspend fun perfil(@Header("Authorization") autorizacion: String): Perfil

@@ -1,24 +1,16 @@
-# Backend común · Seguridad en Entornos Móviles
+# Backend · AI que te pillo
 
-API REST mínima para las prácticas del Bloque II. Sirve por **HTTP sin cifrar**
+Parte del backend común de la asignatura, adaptado al dominio del juego: los
+elementos del proyecto base son ahora misiones (`/api/misiones`). API REST mínima para las prácticas del Bloque II. Sirve por **HTTP sin cifrar**
 de forma deliberada: en la práctica P3.2 se comparará este tráfico con el de la
 misma aplicación tras aplicar TLS y anclaje de certificados.
 
-## Dos versiones del mismo servidor
+## Requisitos
 
-El backend se entrega escrito dos veces, en Python y en Java:
+    servidor.py      requiere Python 3 (cualquier versión), sin bibliotecas externas
 
-    servidor.py      requiere Python 3 (cualquier versión)
-    Servidor.java    requiere un JDK 11 o posterior
-
-Los dos programas son **equivalentes**: mismos endpoints, mismos usuarios,
-mismos datos de ejemplo, mismos códigos de respuesta y las mismas debilidades
-intencionadas. Ninguno de los dos usa bibliotecas externas, de modo que no hay
-nada que descargar ni que instalar aparte del intérprete.
-
-Están los dos a propósito. Quien no tenga Python puede usar Java, porque el JDK
-viene con Android Studio; y quien quiera ver el mismo programa expresado en dos
-lenguajes tiene aquí un ejemplo de tamaño razonable para compararlos.
+La asignatura entrega también una versión equivalente en Java; el equipo amplía
+solo la de Python.
 
 ## Puesta en marcha
 
@@ -26,10 +18,6 @@ Con Python:
 
     python3 servidor.py        # Linux y macOS
     py servidor.py             # Windows
-
-Con Java, sin compilar nada (el JDK ejecuta el fichero fuente directamente):
-
-    java Servidor.java
 
 Con Docker:
 
@@ -46,12 +34,6 @@ opciones: hay que escribir `curl.exe`.
 Para cambiar el puerto:
 
     PUERTO=9000 python3 servidor.py            # Linux y macOS
-    PUERTO=9000 java Servidor.java             # Linux y macOS
-    cmd /c "set PUERTO=9000 && java Servidor.java"    # Windows
-
-Si al arrancar la versión de Java vieras los acentos como caracteres extraños,
-es la consola de Windows, no el programa: ejecuta antes `chcp 65001`. Las
-respuestas de la API van siempre en UTF-8 y no les afecta.
 
 ## Dirección desde el dispositivo
 
@@ -78,9 +60,9 @@ el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
 |---|---|---|---|
 | GET | `/api/salud` | no | Comprobación de disponibilidad |
 | POST | `/api/login` | no | Recibe `{usuario, clave}`; devuelve `{token, usuario, nombre, rol}` |
-| GET | `/api/elementos` | Bearer | Lista los elementos del usuario autenticado |
-| POST | `/api/elementos` | Bearer | Crea un elemento a partir de `{titulo, contenido}` |
-| GET | `/api/elementos/{id}` | Bearer | Devuelve un elemento por su identificador |
+| GET | `/api/misiones` | Bearer | Lista las misiones del usuario autenticado |
+| POST | `/api/misiones` | Bearer | Crea una misión a partir de `{titulo, descripcion, puntos}` |
+| GET | `/api/misiones/{id}` | Bearer | Devuelve una misión por su identificador |
 | GET | `/api/perfil` | Bearer | Datos personales del usuario autenticado |
 | GET | `/api/admin/usuarios` | Bearer | Listado de todas las cuentas |
 
@@ -90,7 +72,7 @@ Ejemplo:
       -H 'Content-Type: application/json' \
       -d '{"usuario":"ana","clave":"Practica2024"}' | grep -o '"token": "[^"]*' | cut -d'"' -f4)
 
-    curl http://localhost:8080/api/elementos -H "Authorization: Bearer $TOKEN"
+    curl http://localhost:8080/api/misiones -H "Authorization: Bearer $TOKEN"
 
 ## Modo TLS (a partir de la práctica P3.2)
 
@@ -99,11 +81,6 @@ pasa a HTTPS con un certificado autofirmado.
 
     ./generar_certificado.sh
     PUERTO=8443 CERT=cert.pem CLAVE=clave.pem python3 servidor.py
-
-La versión de Java admite las mismas variables y lee los mismos dos ficheros
-PEM:
-
-    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem java Servidor.java
 
 El script genera `cert.pem` y `clave.pem`, y muestra por pantalla el resumen
 SHA-256 de la clave pública, que es exactamente el valor que hace falta para
@@ -142,7 +119,7 @@ localizar. **No debe usarse fuera del aula.**
 | Sin límite de intentos de autenticación | Bloque IV |
 | El error distingue «usuario inexistente» de «contraseña incorrecta» | sesión 2.4 · Bloque IV |
 | El certificado del modo TLS es autofirmado | Aceptable en el laboratorio, nunca en producción |
-| `/api/elementos/{id}` no comprueba la propiedad del elemento | Bloque IV |
+| `/api/misiones/{id}` no comprueba la propiedad de la misión | Bloque IV |
 | `/api/admin/usuarios` no comprueba el rol | sesión 2.5 · Bloque IV |
 
 Las dos últimas son referencias directas a la idea de que la autorización debe

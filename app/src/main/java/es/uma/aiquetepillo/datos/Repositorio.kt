@@ -23,7 +23,7 @@ import java.io.IOException
 class Repositorio(
     private val api: ApiServicio,
     private val sesion: SesionLocal,
-    private val dao: ElementoDao
+    private val dao: MisionDao
 ) {
 
     /**
@@ -84,10 +84,10 @@ class Repositorio(
         }
 
     /**
-     * Descarga los elementos del usuario, guarda una copia local y los devuelve.
+     * Descarga las misiones del usuario, guarda una copia local y las devuelve.
      * Si la red falla, devuelve la copia local en lugar de un error.
      */
-    suspend fun obtenerElementos(): EstadoUi<List<Elemento>> =
+    suspend fun obtenerMisiones(): EstadoUi<List<Mision>> =
         withContext(Dispatchers.IO) {
 
             /*
@@ -101,21 +101,22 @@ class Repositorio(
             val propietario = sesion.obtenerUsuario() ?: ""
 
             try {
-                val respuesta = api.elementos("Bearer $token")
+                val respuesta = api.misiones("Bearer $token")
 
                 // Copia local, marcada con su propietario
                 dao.guardar(
-                    respuesta.elementos.map { elemento ->
-                        ElementoEntidad(
-                            id = elemento.id,
-                            titulo = elemento.titulo,
-                            contenido = elemento.contenido,
-                            fecha = elemento.fecha,
+                    respuesta.misiones.map { mision ->
+                        MisionEntidad(
+                            id = mision.id,
+                            titulo = mision.titulo,
+                            descripcion = mision.descripcion,
+                            puntos = mision.puntos,
+                            fecha = mision.fecha,
                             propietario = propietario
                         )
                     }
                 )
-                EstadoUi.Exito(respuesta.elementos)
+                EstadoUi.Exito(respuesta.misiones)
 
             } catch (e: Exception) {
                 /*
@@ -130,7 +131,7 @@ class Repositorio(
                 } else {
                     EstadoUi.Exito(
                         copiaLocal.map { fila ->
-                            Elemento(fila.id, fila.titulo, fila.contenido, fila.fecha)
+                            Mision(fila.id, fila.titulo, fila.descripcion, fila.puntos, fila.fecha)
                         }
                     )
                 }
@@ -147,12 +148,12 @@ class Repositorio(
         }
     }
 
-    suspend fun obtenerElemento(id: Int): EstadoUi<Elemento> =
+    suspend fun obtenerMision(id: Int): EstadoUi<Mision> =
         withContext(Dispatchers.IO) {
             val token = sesion.obtenerToken()
                 ?: return@withContext EstadoUi.Error(MotivoError.SesionCaducada)
             try {
-                EstadoUi.Exito(api.elemento("Bearer $token", id))
+                EstadoUi.Exito(api.mision("Bearer $token", id))
             } catch (e: IOException) {
                 EstadoUi.Error(MotivoError.SinConexion)
             } catch (e: Exception) {

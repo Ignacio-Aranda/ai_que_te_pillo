@@ -21,17 +21,17 @@ import es.uma.aiquetepillo.modelo.*
    dentro de un rato.
 
    Léela buscando una ausencia concreta: aquí no hay ni una sola comprobación
-   de sesión. No se pregunta si hay token, ni si el elemento es tuyo, ni si
+   de sesión. No se pregunta si hay token, ni si la misión es tuya, ni si
    deberías estar viendo esto. Eso no es un descuido ni una simplificación
    didáctica: es como se escriben las pantallas en un proyecto real, y es
    correcto que sea así. En el paso 4 comprobarás quién te detiene de verdad.
    ========================================================================== */
 
 /**
- * Muestra un elemento concreto.
+ * Muestra una misión concreta.
  *
  * Aplica la elevación de estado de la sesión 2.5: el composable NO guarda el
- * elemento ni sabe de dónde sale. Recibe un estado y dos funciones, y se limita
+ * misión ni sabe de dónde sale. Recibe un estado y dos funciones, y se limita
  * a dibujar. Toda la lógica vive en el modelo de vista y en el repositorio.
  *
  * Fíjate en los parámetros: `id` es una referencia, no contenido. Por la ruta
@@ -41,7 +41,7 @@ import es.uma.aiquetepillo.modelo.*
 @Composable
 fun PantallaDetalle(
     id: Int,
-    estado: EstadoUi<Elemento>,
+    estado: EstadoUi<Mision>,
     onCargar: (Int) -> Unit,
     onVolver: () -> Unit
 ) {
@@ -54,7 +54,7 @@ fun PantallaDetalle(
      * una petición en cada redibujado.
      *
      * Consecuencia que importa para el paso 3: basta con que esta pantalla se
-     * abra para que la aplicación pida el elemento al servidor. Nadie tiene que
+     * abra para que la aplicación pida la misión al servidor. Nadie tiene que
      * pulsar nada.
      */
     LaunchedEffect(id) { onCargar(id) }
@@ -62,7 +62,7 @@ fun PantallaDetalle(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Elemento $id") },
+                title = { Text("Misión $id") },
                 navigationIcon = {
                     TextButton(onClick = onVolver) { Text("Volver") }
                 }
@@ -94,9 +94,9 @@ fun PantallaDetalle(
                 ) {
                     Text(estado.datos.titulo, style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.height(12.dp))
-                    Text(estado.datos.contenido, style = MaterialTheme.typography.bodyLarge)
+                    Text(estado.datos.descripcion, style = MaterialTheme.typography.bodyLarge)
                     Spacer(Modifier.height(12.dp))
-                    Text(estado.datos.fecha, style = MaterialTheme.typography.labelMedium)
+                    Text(puntosTexto(estado.datos.puntos), style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

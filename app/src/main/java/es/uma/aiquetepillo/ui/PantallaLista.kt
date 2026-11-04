@@ -18,12 +18,12 @@ import androidx.core.content.ContextCompat
 import es.uma.aiquetepillo.modelo.*
 
 /**
- * Listado de elementos. ESTÁ TERMINADA: no hace falta tocarla en P2.2.
+ * Listado de las misiones del jugador.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaLista(
-    estado: EstadoUi<List<Elemento>>,
+    estado: EstadoUi<List<Mision>>,
     onRecargar: () -> Unit,
     onSalir: () -> Unit,
     onAbrir: (Int) -> Unit
@@ -45,7 +45,7 @@ fun PantallaLista(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mis elementos") },
+                title = { Text("Mis misiones") },
                 actions = {
                     TextButton(onClick = onRecargar) { Text("Recargar") }
                     TextButton(onClick = onSalir) { Text("Salir") }
@@ -78,23 +78,23 @@ fun PantallaLista(
                 when (estado) {
                     is EstadoUi.Reposo -> Text("Pulsa Recargar para cargar los datos")
                     is EstadoUi.Cargando -> CircularProgressIndicator()
-                    is EstadoUi.Error -> Text("No se han podido cargar los elementos")
+                    is EstadoUi.Error -> Text("No se han podido cargar las misiones")
                     is EstadoUi.Exito -> LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(16.dp)
                     ) {
-                        items(estado.datos) { elemento ->
+                        items(estado.datos) { mision ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 6.dp)
-                                    .clickable { onAbrir(elemento.id) }
+                                    .clickable { onAbrir(mision.id) }
                             ) {
                                 Column(Modifier.padding(16.dp)) {
-                                    Text(elemento.titulo, style = MaterialTheme.typography.titleMedium)
+                                    Text(mision.titulo, style = MaterialTheme.typography.titleMedium)
                                     Spacer(Modifier.height(4.dp))
-                                    Text(elemento.contenido, style = MaterialTheme.typography.bodyMedium)
+                                    Text(mision.descripcion, style = MaterialTheme.typography.bodyMedium)
                                     Spacer(Modifier.height(4.dp))
-                                    Text(elemento.fecha, style = MaterialTheme.typography.labelSmall)
+                                    Text(puntosTexto(mision.puntos), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -104,3 +104,6 @@ fun PantallaLista(
         }
     }
 }
+
+/** «1 punto», «3 puntos»… */
+fun puntosTexto(puntos: Int): String = if (puntos == 1) "1 punto" else "$puntos puntos"

@@ -38,24 +38,27 @@ data class RespuestaLogin(
 )
 
 /**
- * Un elemento devuelto por GET /api/elementos.
+ * Una misión devuelta por GET /api/misiones.
+ *
+ * `puntos` depende de la dificultad: 1 (fácil), 3 (media) o 5 (difícil).
  *
  * Los nombres de los campos tienen que coincidir con los del JSON del backend:
  * es kotlinx.serialization quien los empareja. Los valores por defecto hacen
  * que un campo que falte no tumbe la aplicación.
  */
 @Serializable
-data class Elemento(
+data class Mision(
     val id: Int = 0,
     val titulo: String = "",
-    val contenido: String = "",
+    val descripcion: String = "",
+    val puntos: Int = 0,
     val fecha: String = ""
 )
 
-/** Envoltorio de la respuesta de GET /api/elementos */
+/** Envoltorio de la respuesta de GET /api/misiones */
 @Serializable
-data class RespuestaElementos(
-    val elementos: List<Elemento>
+data class RespuestaMisiones(
+    val misiones: List<Mision>
 )
 
 /**

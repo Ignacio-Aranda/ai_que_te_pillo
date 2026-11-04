@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
         val repositorio = Repositorio(
             api = ClienteRed.crear(),
             sesion = SesionLocal(applicationContext),
-            dao = BaseDatos.obtener(applicationContext).elementoDao()
+            dao = BaseDatos.obtener(applicationContext).misionDao()
         )
 
         setContent {
