@@ -25,6 +25,7 @@ fun Navegacion(vistaModelo: VistaModelo) {
     val estadoLogin by vistaModelo.estadoLogin.collectAsState()
     val estadoLista by vistaModelo.estadoLista.collectAsState()
     val estadoDetalle by vistaModelo.estadoDetalle.collectAsState()
+    val fotos by vistaModelo.fotos.collectAsState()
 
     NavHost(navController = navController, startDestination = "login") {
 
@@ -48,6 +49,7 @@ fun Navegacion(vistaModelo: VistaModelo) {
             PantallaLista(
                 nombre = (estadoLogin as? EstadoUi.Exito)?.datos?.nombre.orEmpty(),
                 estado = estadoLista,
+                fotos = fotos,
                 onRecargar = { vistaModelo.cargarMisiones() },
                 onSalir = {
                     vistaModelo.salir()
@@ -55,7 +57,24 @@ fun Navegacion(vistaModelo: VistaModelo) {
                         popUpTo("lista") { inclusive = true }
                     }
                 },
-                onAbrir = { identificador -> navController.navigate("mision/$identificador") }
+                onAbrir = { identificador -> navController.navigate("mision/$identificador") },
+                onHacerFoto = { identificador -> navController.navigate("camara/$identificador") }
+            )
+        }
+
+        // Sin enlace profundo: la cámara solo se abre desde la propia aplicación
+        composable(
+            route = "camara/{id}",
+            arguments = listOf(navArgument("id") { type = NavType.IntType })
+        ) { entrada ->
+            val id = entrada.arguments?.getInt("id") ?: 0
+            PantallaCamara(
+                fichero = vistaModelo.ficheroFoto(id),
+                onHecha = {
+                    vistaModelo.fotoHecha(id)
+                    navController.popBackStack()
+                },
+                onVolver = { navController.popBackStack() }
             )
         }
 

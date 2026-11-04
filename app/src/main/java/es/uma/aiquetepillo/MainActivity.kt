@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import es.uma.aiquetepillo.datos.*
 import es.uma.aiquetepillo.ui.Navegacion
 import es.uma.aiquetepillo.ui.theme.AiQueTePilloTheme
+import java.io.File
 
 /**
  * Punto de entrada. ESTÁ TERMINADO: no hace falta tocarlo en P2.2.
@@ -32,7 +33,8 @@ class MainActivity : ComponentActivity() {
         val repositorio = Repositorio(
             api = ClienteRed.crear(),
             sesion = SesionLocal(applicationContext),
-            dao = BaseDatos.obtener(applicationContext).misionDao()
+            dao = BaseDatos.obtener(applicationContext).misionDao(),
+            fotos = AlmacenFotos(File(cacheDir, "fotos"))
         )
 
         setContent {

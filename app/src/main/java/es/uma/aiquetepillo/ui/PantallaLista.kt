@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import es.uma.aiquetepillo.FotoMision
 import es.uma.aiquetepillo.modelo.*
 import es.uma.aiquetepillo.ui.juego.*
 import es.uma.aiquetepillo.ui.theme.*
@@ -32,9 +33,11 @@ import es.uma.aiquetepillo.ui.theme.*
 fun PantallaLista(
     nombre: String,
     estado: EstadoUi<List<Mision>>,
+    fotos: Map<Int, FotoMision>,
     onRecargar: () -> Unit,
     onSalir: () -> Unit,
-    onAbrir: (Int) -> Unit
+    onAbrir: (Int) -> Unit,
+    onHacerFoto: (Int) -> Unit
 ) {
     var pestana by remember { mutableStateOf(Pestana.MISIONES) }
 
@@ -56,7 +59,7 @@ fun PantallaLista(
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (pestana) {
-                    Pestana.MISIONES -> ContenidoMisiones(estado, onRecargar, onAbrir)
+                    Pestana.MISIONES -> ContenidoMisiones(estado, fotos, onRecargar, onAbrir, onHacerFoto)
                     Pestana.GRUPO -> Proximamente("👥", "Aquí verás tu grupo, sus miembros y el código de invitación.")
                     Pestana.RANKING -> Proximamente("🏆", "Aquí verás la clasificación del grupo por puntos.")
                 }
@@ -100,7 +103,13 @@ private fun TarjetaJugador(nombre: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ContenidoMisiones(estado: EstadoUi<List<Mision>>, onRecargar: () -> Unit, onAbrir: (Int) -> Unit) {
+private fun ContenidoMisiones(
+    estado: EstadoUi<List<Mision>>,
+    fotos: Map<Int, FotoMision>,
+    onRecargar: () -> Unit,
+    onAbrir: (Int) -> Unit,
+    onHacerFoto: (Int) -> Unit
+) {
     when (estado) {
         is EstadoUi.Reposo, is EstadoUi.Cargando -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color.White)
@@ -117,28 +126,29 @@ private fun ContenidoMisiones(estado: EstadoUi<List<Mision>>, onRecargar: () -> 
             if (estado.datos.isEmpty()) {
                 Proximamente("🎯", "Todavía no tienes misiones. Aparecerán cuando empiece la partida.")
             } else {
-                ListaMisiones(estado.datos, onAbrir)
+                ListaMisiones(estado.datos, fotos, onAbrir, onHacerFoto)
             }
         }
     }
 }
 
 @Composable
-private fun ListaMisiones(misiones: List<Mision>, onAbrir: (Int) -> Unit) {
+private fun ListaMisiones(
+    misiones: List<Mision>,
+    fotos: Map<Int, FotoMision>,
+    onAbrir: (Int) -> Unit,
+    onHacerFoto: (Int) -> Unit
+) {
     val activa = misiones.first()
+    val fotoActiva = fotos[activa.id]
     val contexto = LocalContext.current
-    var concedido by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(contexto, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED
-        )
-    }
-    var avisoCamara by remember { mutableStateOf(false) }
 
+    // Si se concede el permiso, se abre la cámara directamente; si se deniega,
+    // no se insiste y el resto de la aplicación sigue funcionando.
     val lanzador = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { resultado ->
-        concedido = resultado
+    ) { concedido ->
+        if (concedido) onHacerFoto(activa.id)
     }
 
     LazyColumn(
@@ -169,6 +179,10 @@ private fun ListaMisiones(misiones: List<Mision>, onAbrir: (Int) -> Unit) {
                 )
                 Spacer(Modifier.height(10.dp))
                 Pastilla("⭐", puntosTexto(activa.puntos), Modifier.align(Alignment.CenterHorizontally))
+                if (fotoActiva != null) {
+                    Spacer(Modifier.height(14.dp))
+                    MiniaturaFoto(fotoActiva, Modifier.fillMaxWidth().aspectRatio(4f / 3f))
+                }
             }
         }
         item {
@@ -178,16 +192,14 @@ private fun ListaMisiones(misiones: List<Mision>, onAbrir: (Int) -> Unit) {
         }
         item {
             BotonGrande(
-                texto = "HACER FOTO",
+                texto = if (fotoActiva == null) "HACER FOTO" else "REPETIR FOTO",
                 onClick = {
-                    if (concedido) avisoCamara = true
+                    val concedido = ContextCompat.checkSelfPermission(contexto, Manifest.permission.CAMERA) ==
+                        PackageManager.PERMISSION_GRANTED
+                    if (concedido) onHacerFoto(activa.id)
                     else lanzador.launch(Manifest.permission.CAMERA)
                 }
             )
-            if (concedido && avisoCamara) {
-                Spacer(Modifier.height(10.dp))
-                Aviso("La cámara llegará en la próxima versión.", fondo = MoradoOscuro)
-            }
         }
         if (misiones.size > 1) {
             item {

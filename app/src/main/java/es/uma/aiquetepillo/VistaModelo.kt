@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * Modelo de vista de la aplicación.
@@ -30,6 +31,20 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
 
     private val _estadoDetalle = MutableStateFlow<EstadoUi<Mision>>(EstadoUi.Reposo)
     val estadoDetalle: StateFlow<EstadoUi<Mision>> = _estadoDetalle.asStateFlow()
+
+    /** Fotos hechas, por misión. Se cargan del disco al arrancar. */
+    private val _fotos = MutableStateFlow(
+        repositorio.fotosGuardadas().mapValues { (_, fichero) -> FotoMision(fichero, fichero.lastModified()) }
+    )
+    val fotos: StateFlow<Map<Int, FotoMision>> = _fotos.asStateFlow()
+
+    fun ficheroFoto(idMision: Int): File = repositorio.ficheroFoto(idMision)
+
+    /** Avisa de que la cámara ha guardado la foto de una misión. */
+    fun fotoHecha(idMision: Int) {
+        val fichero = repositorio.ficheroFoto(idMision)
+        _fotos.value = _fotos.value + (idMision to FotoMision(fichero, fichero.lastModified()))
+    }
 
     fun entrar(usuario: String, clave: String) {
         viewModelScope.launch {
@@ -68,8 +83,15 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
         _estadoLogin.value = EstadoUi.Reposo
         _estadoLista.value = EstadoUi.Reposo
         _estadoDetalle.value = EstadoUi.Reposo
+        _fotos.value = emptyMap()
         viewModelScope.launch {
             repositorio.cerrarSesion()
         }
     }
 }
+
+/**
+ * Una foto guardada. `version` cambia cada vez que se repite la foto, aunque el
+ * fichero sea el mismo, para que la pantalla vuelva a cargarla.
+ */
+data class FotoMision(val fichero: File, val version: Long)

@@ -5,6 +5,7 @@ import es.uma.aiquetepillo.modelo.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
+import java.io.File
 import java.io.IOException
 
 /* ==========================================================================
@@ -23,7 +24,8 @@ import java.io.IOException
 class Repositorio(
     private val api: ApiServicio,
     private val sesion: SesionLocal,
-    private val dao: MisionDao
+    private val dao: MisionDao,
+    private val fotos: AlmacenFotos
 ) {
 
     /**
@@ -164,13 +166,10 @@ class Repositorio(
     /**
      * Cierra la sesión.
      *
-     * Borra el token y el usuario de las preferencias, que es lo que hace que
-     * la aplicación deje de estar autenticada.
-     *
-     * PARA EL CUADERNO: ¿basta con esto para que no quede nada del usuario en
-     * el dispositivo? Escribe tu respuesta ANTES de seguir y compruébala en la
-     * sección 5.5 de la práctica. Fíjate en qué funciones ofrece el DAO y en
-     * cuáles se están llamando de verdad.
+     * Borra todo lo que el usuario deja en el dispositivo: sus misiones de la
+     * copia local, sus fotos y, por último, el token y el usuario de las
+     * preferencias. Las preferencias van al final porque de ellas se lee de
+     * quién son las filas que hay que borrar (P2.2, sección 5.6).
      */
     suspend fun cerrarSesion() {
         withContext(Dispatchers.IO) {
@@ -178,7 +177,14 @@ class Repositorio(
             if (propietario != null) {
                 dao.borrarDe(propietario)
             }
+            fotos.borrarTodas()
             sesion.cerrarSesion()
         }
     }
+
+    /** Fichero donde se guarda la foto de una misión. */
+    fun ficheroFoto(idMision: Int): File = fotos.ficheroPara(idMision)
+
+    /** Las fotos ya hechas, por identificador de misión. */
+    fun fotosGuardadas(): Map<Int, File> = fotos.existentes()
 }
