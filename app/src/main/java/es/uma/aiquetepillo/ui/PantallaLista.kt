@@ -30,6 +30,7 @@ fun PantallaLista(
     nombre: String,
     estado: EstadoUi<List<Mision>>,
     fotos: Map<Int, Foto>,
+    selfies: Map<String, Foto>,
     grupos: EstadoUi<List<Grupo>>,
     resultado: EstadoUi<ResultadoMision>,
     onRecargar: () -> Unit,
@@ -56,14 +57,14 @@ fun PantallaLista(
     FondoJuego {
         Column(Modifier.fillMaxSize()) {
             BarraSuperior(misiones.size, misPuntos, onRecargar, onSalir)
-            TarjetaJugador(nombre, Modifier.padding(horizontal = 16.dp))
+            TarjetaJugador(nombre, selfies[usuario], Modifier.padding(horizontal = 16.dp))
             Spacer(Modifier.height(12.dp))
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (pestana) {
                     Pestana.MISIONES -> ContenidoMisiones(estado, fotos, resultado, onRecargar, onAbrir, onHacerFoto, onEnviarFoto, onSaltar, onElegir)
                     Pestana.GRUPO -> ContenidoGrupos(grupos, onRecargar, onCrearGrupo, onUnirse, onAbrirGrupo)
-                    Pestana.RANKING -> ContenidoRanking(grupos, usuario, onRecargar)
+                    Pestana.RANKING -> ContenidoRanking(grupos, usuario, selfies, onRecargar)
                 }
             }
 
@@ -91,10 +92,10 @@ private fun BarraSuperior(misiones: Int, puntos: Int, onRecargar: () -> Unit, on
 }
 
 @Composable
-private fun TarjetaJugador(nombre: String, modifier: Modifier = Modifier) {
+private fun TarjetaJugador(nombre: String, selfie: Foto?, modifier: Modifier = Modifier) {
     TarjetaJuego(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Medallon(nombre.firstOrNull()?.uppercase() ?: "?", tamano = 56.dp)
+            Avatar(nombre, selfie, tamano = 56.dp)
             Spacer(Modifier.width(14.dp))
             Column {
                 TextoJuego(nombre.ifBlank { "Jugador" }, tamano = 22.sp, alineacion = TextAlign.Start)

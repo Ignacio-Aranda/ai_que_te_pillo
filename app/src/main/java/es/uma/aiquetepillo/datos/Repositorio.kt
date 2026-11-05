@@ -22,6 +22,9 @@ import java.io.IOException
    la regla de la sesión 2.4.5, nada de red ni de disco en el hilo principal.
    ========================================================================== */
 
+/** Formato de usuario del backend. Se comprueba porque el usuario acaba en un nombre de fichero. */
+private val USUARIO_VALIDO = Regex("[a-z0-9_]{3,20}")
+
 class Repositorio(
     private val api: ApiServicio,
     private val sesion: SesionLocal,
@@ -135,6 +138,26 @@ class Repositorio(
         }
         withContext(Dispatchers.IO) { fotos.ficheroSelfie().delete() }
         return resultado
+    }
+
+    /**
+     * Descarga los selfies que aún no están en el dispositivo y devuelve todos
+     * los que hay, por usuario. Un selfie no cambia una vez subido, así que el
+     * fichero guardado no caduca. Los que fallan (sin selfie, sin red) se omiten.
+     */
+    suspend fun selfies(usuarios: Set<String>): Map<String, File> = withContext(Dispatchers.IO) {
+        val token = sesion.obtenerToken() ?: return@withContext emptyMap()
+        usuarios.filter { USUARIO_VALIDO.matches(it) }.mapNotNull { usuario ->
+            val fichero = fotos.ficheroSelfieDe(usuario)
+            if (!fichero.exists()) {
+                try {
+                    fichero.writeBytes(api.selfieDe("Bearer $token", usuario).bytes())
+                } catch (e: Exception) {
+                    return@mapNotNull null
+                }
+            }
+            usuario to fichero
+        }.toMap()
     }
 
     /**

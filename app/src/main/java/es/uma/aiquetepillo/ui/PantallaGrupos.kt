@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import es.uma.aiquetepillo.Foto
 import es.uma.aiquetepillo.modelo.*
 import es.uma.aiquetepillo.ui.juego.*
 import es.uma.aiquetepillo.ui.theme.*
@@ -109,6 +110,7 @@ fun PantallaGrupo(
     cargando: Boolean,
     usuario: String?,
     partida: EstadoUi<Grupo>,
+    selfies: Map<String, Foto>,
     estadoSelfie: EstadoUi<Unit>,
     onEmpezar: (Int) -> Unit,
     onHacerSelfie: () -> Unit,
@@ -198,7 +200,7 @@ fun PantallaGrupo(
             val tarjeta = Modifier.fillMaxWidth().padding(bottom = 10.dp)
             TarjetaJuego(if (sinSelfie && !subiendo) tarjeta.clickable { abrirCamara() } else tarjeta) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Medallon(miembro.nombre.firstOrNull()?.uppercase() ?: "?", tamano = 44.dp)
+                    Avatar(miembro.nombre, selfies[miembro.usuario], tamano = 44.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
@@ -223,7 +225,7 @@ fun PantallaGrupo(
 
 /** Clasificación de cada grupo del jugador, por puntos. */
 @Composable
-fun ContenidoRanking(estado: EstadoUi<List<Grupo>>, usuario: String, onRecargar: () -> Unit) {
+fun ContenidoRanking(estado: EstadoUi<List<Grupo>>, usuario: String, selfies: Map<String, Foto>, onRecargar: () -> Unit) {
     when (estado) {
         is EstadoUi.Reposo, is EstadoUi.Cargando -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color.White)
@@ -241,7 +243,7 @@ fun ContenidoRanking(estado: EstadoUi<List<Grupo>>, usuario: String, onRecargar:
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(estado.datos) { grupo -> TablaGrupo(grupo, usuario) }
+                items(estado.datos) { grupo -> TablaGrupo(grupo, usuario, selfies) }
                 item { Spacer(Modifier.height(8.dp)) }
             }
         }
@@ -249,7 +251,7 @@ fun ContenidoRanking(estado: EstadoUi<List<Grupo>>, usuario: String, onRecargar:
 }
 
 @Composable
-private fun TablaGrupo(grupo: Grupo, usuario: String) {
+private fun TablaGrupo(grupo: Grupo, usuario: String, selfies: Map<String, Foto>) {
     TarjetaJuego(Modifier.fillMaxWidth()) {
         TextoJuego(grupo.nombre.uppercase(), Modifier.fillMaxWidth(), tamano = 20.sp)
         Spacer(Modifier.height(8.dp))
@@ -265,7 +267,7 @@ private fun TablaGrupo(grupo: Grupo, usuario: String) {
                     modifier = Modifier.width(40.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Medallon(miembro.nombre.firstOrNull()?.uppercase() ?: "?", tamano = 40.dp)
+                Avatar(miembro.nombre, selfies[miembro.usuario], tamano = 40.dp)
                 Spacer(Modifier.width(10.dp))
                 Text(
                     miembro.nombre,

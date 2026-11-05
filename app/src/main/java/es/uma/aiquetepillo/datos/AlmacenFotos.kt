@@ -3,13 +3,14 @@ package es.uma.aiquetepillo.datos
 import java.io.File
 
 /**
- * Fotos de las misiones, una por misión, y el selfie de registro, en el
- * directorio privado de la aplicación (cache/fotos/).
+ * Fotos de las misiones, una por misión, el selfie de registro y los selfies
+ * descargados de los miembros de los grupos, en el directorio privado de la
+ * aplicación (cache/fotos/).
  *
  * AVISO: igual que la base de datos, las fotos se guardan SIN CIFRAR y
  * cualquiera con run-as sobre la variante depurable puede sacarlas. El selfie
- * se borra en cuanto se sube; las fotos de misión, al conseguir la misión o al
- * cerrar sesión.
+ * propio se borra en cuanto se sube; las fotos de misión, al conseguir la
+ * misión o al cerrar sesión, y los selfies descargados, al cerrar sesión.
  */
 class AlmacenFotos(private val carpeta: File) {
 
@@ -21,6 +22,12 @@ class AlmacenFotos(private val carpeta: File) {
     fun ficheroSelfie(): File {
         carpeta.mkdirs()
         return File(carpeta, "selfie.jpg")
+    }
+
+    /** Selfie descargado de un miembro. `usuario` ya viene validado. */
+    fun ficheroSelfieDe(usuario: String): File {
+        carpeta.mkdirs()
+        return File(carpeta, "selfie_$usuario.jpg")
     }
 
     fun borrar(idMision: Int) {

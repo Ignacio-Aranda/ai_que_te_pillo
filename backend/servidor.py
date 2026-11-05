@@ -321,6 +321,13 @@ class Manejador(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(datos)
 
+    def _responder_jpeg(self, datos):
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(datos)))
+        self.end_headers()
+        self.wfile.write(datos)
+
     def _cuerpo(self):
         """El cuerpo JSON de la petición. Si no es un objeto, se trata como vacío."""
         try:
@@ -392,6 +399,21 @@ class Manejador(BaseHTTPRequestHandler):
             if grupo is None:
                 return self._responder(404, {"error": "Código no válido"})
             return self._responder(200, grupo_publico(grupo))
+
+        m = re.match(r"^/api/usuarios/([a-z0-9_]+)/selfie$", ruta)
+        if m:
+            usuario = self._usuario_autenticado()
+            if usuario is None:
+                return self._responder(401, {"error": "Token ausente o no válido"})
+            dueno = m.group(1)
+            # Lo ve su dueño y quien comparte grupo con él; para el resto, como si no existiera
+            comparten = usuario == dueno or any(
+                usuario in g["miembros"] and dueno in g["miembros"] for g in list(GRUPOS.values())
+            )
+            selfie = SELFIES.get(dueno)
+            if not comparten or selfie is None:
+                return self._responder(404, {"error": "No encontrado"})
+            return self._responder_jpeg(selfie)
 
         m = re.match(r"^/api/misiones/(\d+)$", ruta)
         if m:

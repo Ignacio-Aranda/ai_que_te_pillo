@@ -35,6 +35,7 @@ fun Navegacion(vistaModelo: VistaModelo) {
     val estadoRegistro by vistaModelo.estadoRegistro.collectAsState()
     val selfie by vistaModelo.selfie.collectAsState()
     val estadoSelfie by vistaModelo.estadoSelfie.collectAsState()
+    val selfies by vistaModelo.selfies.collectAsState()
     val estadoPartida by vistaModelo.estadoPartida.collectAsState()
     val estadoMision by vistaModelo.estadoMision.collectAsState()
     val usuario = (estadoLogin as? EstadoUi.Exito)?.datos?.usuario
@@ -117,6 +118,7 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 nombre = (estadoLogin as? EstadoUi.Exito)?.datos?.nombre.orEmpty(),
                 estado = estadoLista,
                 fotos = fotos,
+                selfies = selfies,
                 grupos = estadoGrupos,
                 resultado = estadoMision,
                 onRecargar = {
@@ -161,6 +163,7 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 cargando = estadoGrupos is EstadoUi.Reposo || estadoGrupos is EstadoUi.Cargando,
                 usuario = usuario,
                 partida = estadoPartida,
+                selfies = selfies,
                 estadoSelfie = estadoSelfie,
                 onEmpezar = { vistaModelo.empezarPartida(it) },
                 onHacerSelfie = { navController.navigate("subir-selfie") },

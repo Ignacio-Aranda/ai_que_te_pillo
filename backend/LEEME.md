@@ -81,6 +81,7 @@ reiniciar el servidor.
 | GET | `/api/salud` | no | Comprobación de disponibilidad |
 | POST | `/api/registro` | no | Recibe `{usuario, clave, nombre, selfie}` con el selfie en Base64; crea la cuenta y devuelve lo mismo que el acceso |
 | POST | `/api/selfie` | Bearer | Recibe `{selfie}` en Base64 y lo guarda si la cuenta aún no tiene (las de ejemplo). 409 si ya tiene |
+| GET | `/api/usuarios/{usuario}/selfie` | Bearer | Devuelve el selfie (JPEG) a su dueño y a quien comparte un grupo con él; 404 para el resto o si no tiene |
 | POST | `/api/login` | no | Recibe `{usuario, clave}`; devuelve `{token, usuario, nombre, rol}` |
 | GET | `/api/misiones` | Bearer | Lista las misiones activas del usuario autenticado, una por grupo con la partida empezada |
 | POST | `/api/misiones` | Bearer | Crea una misión a partir de `{titulo, descripcion, puntos}` |

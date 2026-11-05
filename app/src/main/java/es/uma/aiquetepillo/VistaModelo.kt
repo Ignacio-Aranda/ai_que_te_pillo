@@ -49,6 +49,10 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     private val _estadoRegistro = MutableStateFlow<EstadoUi<RespuestaLogin>>(EstadoUi.Reposo)
     val estadoRegistro: StateFlow<EstadoUi<RespuestaLogin>> = _estadoRegistro.asStateFlow()
 
+    /** Selfies del jugador y de los miembros de sus grupos, por usuario. */
+    private val _selfies = MutableStateFlow<Map<String, Foto>>(emptyMap())
+    val selfies: StateFlow<Map<String, Foto>> = _selfies.asStateFlow()
+
     /** Subida del selfie de una cuenta que no lo tiene. */
     private val _estadoSelfie = MutableStateFlow<EstadoUi<Unit>>(EstadoUi.Reposo)
     val estadoSelfie: StateFlow<EstadoUi<Unit>> = _estadoSelfie.asStateFlow()
@@ -145,8 +149,17 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     fun cargarGrupos() {
         viewModelScope.launch {
             if (_estadoGrupos.value !is EstadoUi.Exito) _estadoGrupos.value = EstadoUi.Cargando
-            _estadoGrupos.value = repositorio.obtenerGrupos()
+            val resultado = repositorio.obtenerGrupos()
+            _estadoGrupos.value = resultado
+            if (resultado is EstadoUi.Exito) cargarSelfies(resultado.datos)
         }
+    }
+
+    /** El propio se pide siempre: puede tenerlo aunque aún no esté en ningún grupo. */
+    private suspend fun cargarSelfies(grupos: List<Grupo>) {
+        val yo = (_estadoLogin.value as? EstadoUi.Exito)?.datos?.usuario
+        val usuarios = grupos.flatMap { it.miembros }.filter { it.selfie }.map { it.usuario }.toSet() + setOfNotNull(yo)
+        _selfies.value = repositorio.selfies(usuarios).mapValues { (_, fichero) -> Foto(fichero, fichero.lastModified()) }
     }
 
     fun crearGrupo(nombre: String, contexto: String) {
@@ -242,6 +255,7 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
         _estadoRegistro.value = EstadoUi.Reposo
         _estadoMision.value = EstadoUi.Reposo
         _selfie.value = null
+        _selfies.value = emptyMap()
         olvidarAltaGrupo()
         _fotos.value = emptyMap()
         viewModelScope.launch {

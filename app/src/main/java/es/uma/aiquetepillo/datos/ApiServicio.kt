@@ -36,6 +36,13 @@ interface ApiServicio {
     @POST("api/registro")
     suspend fun registro(@Body peticion: PeticionRegistro): RespuestaLogin
 
+    /** El selfie llega como JPEG, no como JSON: se lee el cuerpo tal cual. */
+    @GET("api/usuarios/{usuario}/selfie")
+    suspend fun selfieDe(
+        @Header("Authorization") autorizacion: String,
+        @Path("usuario") usuario: String
+    ): okhttp3.ResponseBody
+
     @POST("api/selfie")
     suspend fun subirSelfie(
         @Header("Authorization") autorizacion: String,

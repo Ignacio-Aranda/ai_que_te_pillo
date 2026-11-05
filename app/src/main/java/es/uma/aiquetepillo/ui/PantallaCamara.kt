@@ -14,6 +14,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -189,4 +191,25 @@ fun MiniaturaFoto(foto: Foto, modifier: Modifier = Modifier, descripcion: String
                 .border(3.dp, Tinta, RoundedCornerShape(18.dp))
         )
     }
+}
+
+/** Círculo con el selfie del jugador o, si no lo tiene, con su inicial. */
+@Composable
+fun Avatar(nombre: String, selfie: Foto?, tamano: Dp) {
+    val imagen = remember(selfie?.fichero?.path, selfie?.version) {
+        selfie?.let { cargarReducida(it.fichero, ladoMaximo = 256)?.asImageBitmap() }
+    }
+    if (imagen == null) {
+        Medallon(nombre.firstOrNull()?.uppercase() ?: "?", tamano = tamano)
+        return
+    }
+    Image(
+        bitmap = imagen,
+        contentDescription = "Selfie de $nombre",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(tamano)
+            .clip(CircleShape)
+            .border(3.dp, Tinta, CircleShape)
+    )
 }
