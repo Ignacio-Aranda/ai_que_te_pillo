@@ -7,15 +7,29 @@ misma aplicación tras aplicar TLS y anclaje de certificados.
 
 ## Requisitos
 
-    servidor.py      requiere Python 3 (cualquier versión), sin bibliotecas externas
+    servidor.py      requiere Python 3.10 o posterior y el SDK de OpenRouter (`openrouter`)
 
 La asignatura entrega también una versión equivalente en Java; el equipo amplía
 solo la de Python.
 
+La IA (generación de misiones y comprobación de fotos) usa el modelo
+`anthropic/claude-haiku-5.5` a través de OpenRouter. La clave se pone en un
+fichero `backend/.env`, que está excluido del repositorio:
+
+    OPENROUTER_API_KEY=sk-or-...
+
+Sin clave, el servidor arranca en **modo sin IA**: las misiones salen de una
+lista fija y las fotos se aceptan sin comprobarlas.
+
 ## Puesta en marcha
 
-Con Python:
+Con uv, que instala el SDK la primera vez (lo declara la cabecera del script):
 
+    uv run servidor.py
+
+Con Python y pip:
+
+    pip install openrouter
     python3 servidor.py        # Linux y macOS
     py servidor.py             # Windows
 
@@ -33,7 +47,7 @@ opciones: hay que escribir `curl.exe`.
 
 Para cambiar el puerto:
 
-    PUERTO=9000 python3 servidor.py            # Linux y macOS
+    PUERTO=9000 uv run servidor.py             # Linux y macOS
 
 ## Dirección desde el dispositivo
 
@@ -59,8 +73,9 @@ el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
 | Método | Ruta | Autenticación | Descripción |
 |---|---|---|---|
 | GET | `/api/salud` | no | Comprobación de disponibilidad |
+| POST | `/api/registro` | no | Recibe `{usuario, clave, nombre, selfie}` con el selfie en Base64; crea la cuenta y devuelve lo mismo que el acceso |
 | POST | `/api/login` | no | Recibe `{usuario, clave}`; devuelve `{token, usuario, nombre, rol}` |
-| GET | `/api/misiones` | Bearer | Lista las misiones del usuario autenticado |
+| GET | `/api/misiones` | Bearer | Lista las misiones activas del usuario autenticado, una por grupo con la partida empezada |
 | POST | `/api/misiones` | Bearer | Crea una misión a partir de `{titulo, descripcion, puntos}` |
 | GET | `/api/misiones/{id}` | Bearer | Devuelve una misión por su identificador |
 | GET | `/api/perfil` | Bearer | Datos personales del usuario autenticado |
@@ -68,7 +83,10 @@ el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
 | GET | `/api/grupos` | Bearer | Lista los grupos del usuario autenticado, con sus miembros |
 | POST | `/api/grupos` | Bearer | Crea un grupo a partir de `{nombre, contexto}`; el creador entra como miembro y se genera un código de invitación |
 | GET | `/api/invitaciones/{codigo}` | Bearer | Vista previa del grupo de un código, para confirmar antes de unirse |
-| POST | `/api/grupos/unirse` | Bearer | Une al usuario autenticado al grupo de `{codigo}` |
+| POST | `/api/grupos/unirse` | Bearer | Une al usuario autenticado al grupo de `{codigo}`; si la partida ya ha empezado, le genera su misión |
+| POST | `/api/grupos/{id}/empezar` | Bearer | Empieza la partida (solo quien creó el grupo, con dos jugadores o más): la IA genera una misión para cada miembro |
+| POST | `/api/misiones/{id}/foto` | Bearer | Recibe `{foto}` en Base64; la IA la compara con la misión y con el selfie del objetivo y devuelve `{valida, motivo, puntos}`. Si es válida, suma los puntos y genera otra misión |
+| POST | `/api/misiones/{id}/saltar` | Bearer | Resta un punto y genera otra misión |
 
 Ejemplo:
 
@@ -123,6 +141,9 @@ localizar. **No debe usarse fuera del aula.**
 | Sin límite de intentos de autenticación | Bloque IV |
 | El error distingue «usuario inexistente» de «contraseña incorrecta» | sesión 2.4 · Bloque IV |
 | El certificado del modo TLS es autofirmado | Aceptable en el laboratorio, nunca en producción |
+| El registro confirma qué usuarios existen (409), no exige ninguna política de contraseñas y no limita el tamaño del selfie ni de las fotos | Bloque IV |
+| El contexto del grupo y las fotos llegan al modelo de IA: se pueden usar para inyectarle instrucciones (texto escrito en la foto, contexto manipulado) | Bloque IV |
+| En modo sin IA, cualquier foto se da por buena | Solo para desarrollo |
 | Los códigos de invitación se generan con un generador no criptográfico, no caducan y se pueden probar sin límite: `/api/invitaciones/{codigo}` responde 404 a los que no existen | Bloque IV |
 | `/api/misiones/{id}` no comprueba la propiedad de la misión | Bloque IV |
 | `/api/admin/usuarios` no comprueba el rol | sesión 2.5 · Bloque IV |

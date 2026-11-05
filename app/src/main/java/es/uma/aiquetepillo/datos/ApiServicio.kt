@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.http.*
+import java.util.concurrent.TimeUnit
 
 /* ==========================================================================
    EL ACCESO AL BACKEND
@@ -31,6 +32,9 @@ interface ApiServicio {
     /** El cuerpo se serializa a JSON a partir de la clase de datos. */
     @POST("api/login")
     suspend fun login(@Body peticion: PeticionLogin): RespuestaLogin
+
+    @POST("api/registro")
+    suspend fun registro(@Body peticion: PeticionRegistro): RespuestaLogin
 
     /**
      * La cabecera de autorización viaja como parámetro: quien llame tiene que
@@ -68,6 +72,25 @@ interface ApiServicio {
         @Header("Authorization") autorizacion: String,
         @Body peticion: PeticionUnirse
     ): Grupo
+
+    @POST("api/grupos/{id}/empezar")
+    suspend fun empezar(
+        @Header("Authorization") autorizacion: String,
+        @Path("id") id: Int
+    ): Grupo
+
+    @POST("api/misiones/{id}/foto")
+    suspend fun enviarFoto(
+        @Header("Authorization") autorizacion: String,
+        @Path("id") id: Int,
+        @Body peticion: PeticionFoto
+    ): ResultadoMision
+
+    @POST("api/misiones/{id}/saltar")
+    suspend fun saltar(
+        @Header("Authorization") autorizacion: String,
+        @Path("id") id: Int
+    ): ResultadoMision
 }
 
 object ClienteRed {
@@ -112,6 +135,8 @@ object ClienteRed {
          */
         val cliente = OkHttpClient.Builder()
             .addInterceptor(registro)
+            // Empezar la partida y comprobar una foto esperan a la IA del servidor
+            .readTimeout(60, TimeUnit.SECONDS)
             .build()
 
         /*

@@ -25,7 +25,7 @@ El dato más sensible son las fotos de personas: el selfie de registro es un dat
 |---|---|
 | Autenticación de usuarios | Inicio de sesión contra el backend, que devuelve un token de sesión |
 | Almacenamiento local de datos sensibles | Token y usuario en `SharedPreferences`; copia local de los datos en una base de datos Room |
-| Llamada a una API remota | Retrofit contra el backend propio, que en la versión final llamará también al proveedor de IA |
+| Llamada a una API remota | Retrofit contra el backend propio, que a su vez llama al proveedor de IA (OpenRouter) para generar las misiones y comprobar las fotos |
 | Permiso peligroso justificado | `CAMERA`, solicitado en tiempo de ejecución, para el selfie de registro y las fotos de las misiones |
 
 ## Estado actual
@@ -33,12 +33,15 @@ El dato más sensible son las fotos de personas: el selfie de registro es un dat
 El código parte del proyecto base de las prácticas P2.2 y P2.3, con sus cambios aplicados:
 
 - Inicio de sesión, listado de misiones y pantalla de detalle con Jetpack Compose, navegación con argumentos de ruta y enlace profundo `aiquetepillo://mision/{id}`.
-- Persistencia local con Room y sesión en `SharedPreferences`, con el cierre de sesión que borra también la copia local (P2.2, sección 5.6).
-- Foto de la misión activa con CameraX dentro de la aplicación: el permiso de cámara se pide en tiempo de ejecución al pulsar «HACER FOTO» y, si se deniega, la aplicación sigue funcionando sin esa función. La foto se guarda en el directorio privado y se muestra en la misión; todavía no se sube al servidor.
+- Persistencia local con Room y sesión en `SharedPreferences`: la sesión se mantiene entre aperturas (la aplicación arranca en la lista si hay un token guardado) y el cierre de sesión borra también la copia local (P2.2, sección 5.6).
+- Registro con selfie: la cuenta nueva exige un selfie hecho en el momento con la cámara frontal de la aplicación. Se sube con el registro y se borra del dispositivo.
+- Foto de la misión activa con CameraX dentro de la aplicación: el permiso de cámara se pide en tiempo de ejecución al pulsar «HACER FOTO» (o «HACER SELFIE») y, si se deniega, la aplicación sigue funcionando sin esa función. La foto se guarda en el directorio privado, se muestra en la misión y se envía al servidor con «ENVIAR FOTO».
+- Partida con IA: quien crea el grupo pulsa «EMPEZAR PARTIDA» y el backend pide al modelo `anthropic/claude-haiku-5.5` (OpenRouter) una misión para cada jugador, adaptada al contexto del grupo. Al enviar la foto, el modelo la compara con la misión y con el selfie del objetivo: si la da por buena, suma los puntos (1, 3 o 5 según la dificultad) y genera otra misión; si no, explica por qué. Saltar una misión resta un punto.
+- Clasificación de cada grupo por puntos, en la pestaña «Ranking».
 - Grupos en la pestaña «Grupo»: crear un grupo con nombre y contexto (el creador entra como miembro), ver sus miembros y su código de invitación de seis caracteres, e invitar compartiendo el código y el enlace `aiquetepillo://unirse/{codigo}` con el selector de Android. Para unirse se escribe el código o se abre el enlace; en los dos casos la aplicación enseña antes el grupo y solo une al pulsar «UNIRSE».
 - La ventana está marcada como segura (`FLAG_SECURE`).
 
-El modelo de datos ya está adaptado al dominio: la aplicación y el backend trabajan con misiones (`Mision`: título, descripción, puntos según la dificultad y fecha) y grupos (`Grupo`, con sus `Miembro`). Faltan el registro con selfie, empezar la partida, la generación de misiones con IA, la verificación de las fotos y la clasificación.
+El modelo de datos está adaptado al dominio: la aplicación y el backend trabajan con misiones (`Mision`: título, descripción, puntos según la dificultad, fecha, grupo y objetivo) y grupos (`Grupo`, con sus `Miembro` y los puntos de cada uno). Quedan como opcionales la proximidad entre cazador y objetivo y el historial de misiones completadas.
 
 La aplicación es **deliberadamente insegura** en el Bloque II: guarda el token y los datos en claro, registra las peticiones completas en logcat y usa HTTP sin cifrar. Cada uno de esos puntos se corrige en el Bloque III. No debe usarse fuera del aula ni exponerse a Internet.
 
@@ -56,17 +59,25 @@ La aplicación es **deliberadamente insegura** en el Bloque II: guarda el token 
 
 ## Compilar y ejecutar
 
-Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y Python 3 para el backend.
+Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y [uv](https://docs.astral.sh/uv/) (o Python 3.10 con `pip install openrouter`) para el backend.
 
-1. Arrancar el backend en el ordenador:
+1. Poner la clave de OpenRouter en `backend/.env`, que está excluido del repositorio:
 
-   ```bash
-   python3 backend/servidor.py
+   ```
+   OPENROUTER_API_KEY=sk-or-...
    ```
 
-   Escucha en el puerto 8080. Los usuarios de prueba están en [backend/LEEME.md](backend/LEEME.md).
+   Sin este fichero el backend funciona en modo sin IA: misiones de una lista fija y fotos aceptadas sin comprobarlas.
 
-2. Abrir el proyecto en Android Studio y ejecutarlo en el emulador, o desde la línea de comandos:
+2. Arrancar el backend en el ordenador:
+
+   ```bash
+   uv run backend/servidor.py
+   ```
+
+   Escucha en el puerto 8080. Los usuarios de prueba están en [backend/LEEME.md](backend/LEEME.md); también se puede crear una cuenta desde la aplicación.
+
+3. Abrir el proyecto en Android Studio y ejecutarlo en el emulador, o desde la línea de comandos:
 
    ```bash
    ./gradlew assembleDebug
@@ -101,19 +112,19 @@ App analizada: **Frunk** (`com.frunk_ignacioaranda`, versionName "Version 3", ve
 
 ## Inventario de datos sensibles (P2.2, sección 6.2)
 
-Estado del Bloque II. Las filas marcadas *(previsto)* son datos que la aplicación aún no maneja pero que forman parte del diseño ([TODO.md](TODO.md)); se describe dónde quedarían si se implementasen tal como está el código hoy.
+Estado del Bloque II, tal como está el código hoy. La última columna se completa en el Bloque III.
 
 | Dato | Dónde se guarda hoy | Quién puede leerlo hoy | Cómo se protegerá |
 |---|---|---|---|
 | Token de sesión | `shared_prefs/sesion.xml`, en claro. Además se escribe en logcat dos veces: el `Log.d` de `RespuestaLogin` en `Repositorio.iniciarSesion` y el interceptor de OkHttp con nivel `BODY`. Viaja por HTTP en la cabecera `Authorization` de cada petición | Cualquiera con adb y la depuración activada (`run-as`, `logcat`); cualquiera en la misma red; la copia de seguridad en la nube (`allowBackup="true"` sin exclusiones). Es además predecible: Base64 de `usuario:hora` | A completar en el Bloque III |
 | Contraseña | No se guarda en el dispositivo. Viaja en claro en el cuerpo de `POST /api/login` y queda en logcat por el interceptor. En el backend está en claro, en memoria | Cualquiera con `adb logcat`; cualquiera en la misma red; quien tenga acceso al servidor | A completar en el Bloque III |
-| Nombre de usuario | `shared_prefs/sesion.xml` y columna `propietario` de la tabla `misiones`, en claro | Cualquiera con adb y la depuración activada; la copia de seguridad en la nube | A completar en el Bloque III |
+| Nombre de usuario y nombre visible | `shared_prefs/sesion.xml` y columna `propietario` de la tabla `misiones`, en claro | Cualquiera con adb y la depuración activada; la copia de seguridad en la nube | A completar en el Bloque III |
 | Misiones (título, descripción, puntos, fecha) | `databases/aiquetepillo.db` y sus ficheros `-wal` y `-shm`, sin cifrar; los cuerpos de las respuestas, en logcat. Las descripciones nombran a personas reales («Pilla a Luis…») | Cualquiera con adb y la depuración activada; la copia de seguridad en la nube; cualquiera en la misma red. El servidor entrega la misión de otro usuario a quien pida su id | A completar en el Bloque III |
 | Datos personales del perfil (nombre, correo, DNI, rol) | No se guardan en el dispositivo: la interfaz aún no llama a `GET /api/perfil`, aunque el cliente ya la tiene. En el backend, en claro | Cualquier usuario autenticado puede listar los de todos con `GET /api/admin/usuarios`, que no comprueba el rol; cualquiera en la misma red cuando se pidan | A completar en el Bloque III |
-| Selfie de registro *(previsto)* | Todavía no existe. Se haría con la cámara de la app y se subiría al backend. Es un dato biométrico, categoría especial del art. 9 del RGPD | Nadie todavía. Con el código actual viajaría en claro por HTTP y quedaría sin cifrar en el servidor y en la caché local | A completar en el Bloque III |
-| Fotos de las misiones | `cache/fotos/mision_<id>.jpg` en el directorio privado, sin cifrar; se borran al cerrar sesión. Todavía no se suben: en el diseño irían al backend y este las reenviaría al proveedor de IA (OpenRouter) para validarlas | Cualquiera con adb y `run-as` sobre la variante depurable. Cuando se suban: la red, el servidor y un tercero, el proveedor de IA | A completar en el Bloque III |
+| Selfie de registro | En el dispositivo, `cache/fotos/selfie.jpg` sin cifrar hasta que se sube con el registro, y después se borra. Viaja en Base64 dentro del JSON de `POST /api/registro`, por HTTP, y el interceptor lo escribe entero en logcat. En el backend, en memoria y sin cifrar, y se envía al proveedor de IA en cada comprobación de una foto en la que sea el objetivo. Es un dato biométrico, categoría especial del art. 9 del RGPD | Cualquiera con `adb logcat` o en la misma red durante el registro; con `run-as`, mientras no se ha subido; quien tenga acceso al servidor; y un tercero, el proveedor de IA | A completar en el Bloque III |
+| Fotos de las misiones | `cache/fotos/mision_<id>.jpg` en el directorio privado, sin cifrar; se borran al conseguir o saltar la misión y al cerrar sesión. Al enviarlas viajan en Base64 por HTTP y quedan en logcat. El backend no las guarda: las reenvía al proveedor de IA (OpenRouter) para validarlas | Cualquiera con adb y `run-as` sobre la variante depurable; cualquiera con `adb logcat` o en la misma red al enviarlas; y un tercero, el proveedor de IA | A completar en el Bloque III |
 | Grupos: nombre, contexto, miembros y código de invitación | En el backend, en memoria y en claro. En el dispositivo no se guardan, pero viajan por HTTP y quedan en logcat por el interceptor. El código va también en el texto que se comparte al invitar | Cualquier miembro del grupo; quien reciba la invitación; cualquiera con `adb logcat` o en la misma red; y quien adivine un código de 6 caracteres, porque `GET /api/invitaciones/{codigo}` no limita los intentos y responde 404 a los que no existen | A completar en el Bloque III |
-| Clave del proveedor de IA *(previsto)* | Solo en el backend, como variable de entorno. Nunca en el APK ni en el repositorio | Quien tenga acceso al servidor. Si llegase al APK, cualquiera que lo decompile con jadx | A completar en el Bloque III |
+| Clave del proveedor de IA | Solo en el backend, en `backend/.env` (excluido del repositorio por `.gitignore`) o en la variable `OPENROUTER_API_KEY`. Nunca en el APK ni en el repositorio | Quien tenga acceso al servidor. Si llegase al APK, cualquiera que lo decompile con jadx y gaste a costa del proyecto | A completar en el Bloque III |
 
 ## Inventario de la superficie expuesta (P2.3, sección 5)
 
@@ -134,7 +145,7 @@ En nuestro manifiesto solo declaramos exportada `MainActivity`, pero el manifies
 | Vista de recientes y capturas | Botón de recientes del sistema, o una captura de pantalla | Protegida: `FLAG_SECURE` en `MainActivity` deja la miniatura en negro y bloquea las capturas | Sesión 3.6 |
 | Permiso de cámara | Botón «HACER FOTO» de la misión activa | El sistema pide el permiso en tiempo de ejecución y la app sigue funcionando si se deniega. Se usa para hacer la foto de la misión con CameraX dentro de la app; la pantalla de la cámara vuelve a comprobar el permiso y no tiene enlace profundo | Bloque III · Bloque IV |
 | Enlace profundo `aiquetepillo://unirse/{codigo}` | `adb shell am start -a android.intent.action.VIEW -d "aiquetepillo://unirse/K7P2QX" es.uma.aiquetepillo`, o el texto que se comparte con «INVITAR» | Enseña el grupo y solo une al pulsar «UNIRSE». Igual que el enlace de misión, no pasa por la pantalla de acceso y usa el token que haya guardado. El código se puede probar por fuerza bruta contra la API: sin límite de intentos y con 404 para los que no existen | Sesión 3.4 · Bloque IV |
-| Subida de fotos y envío al proveedor de IA *(previsto)* | Desde la app, o con `curl` contra el endpoint de subida | Pendiente de diseñar: tamaño, tipo de fichero y que la foto sea de la misión propia. Una foto trucada podría engañar al modelo de visión | Sesión 3.5 · Bloque IV |
+| Subida de fotos y envío al proveedor de IA | «ENVIAR FOTO» en la app, o `curl` contra `POST /api/misiones/{id}/foto` con la foto en Base64 | Que haya token, que la misión sea del usuario y que sea un JPEG. No limita el tamaño ni el número de intentos, y el modelo puede ser engañado con una foto trucada o con texto escrito en ella; el contexto del grupo, que escribe su creador, también llega al modelo | Sesión 3.5 · Bloque IV |
 
 ## Reparto de trabajo
 

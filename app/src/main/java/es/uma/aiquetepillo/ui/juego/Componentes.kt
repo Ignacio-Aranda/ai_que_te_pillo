@@ -103,7 +103,11 @@ fun TextoJuego(
         fontSize = tamano,
         textAlign = alineacion
     )
-    val alineacionCaja = if (alineacion == TextAlign.Start) Alignment.CenterStart else Alignment.Center
+    val alineacionCaja = when (alineacion) {
+        TextAlign.Start -> Alignment.CenterStart
+        TextAlign.End -> Alignment.CenterEnd
+        else -> Alignment.Center
+    }
     Box(modifier, contentAlignment = alineacionCaja) {
         Text(texto, style = estilo.copy(color = Tinta, drawStyle = Stroke(width = grosor, join = StrokeJoin.Round)))
         Text(texto, style = estilo.copy(color = color))
@@ -214,35 +218,6 @@ fun BotonRedondo(icono: String, descripcion: String, onClick: () -> Unit, modifi
         contentAlignment = Alignment.Center
     ) {
         Text(icono, fontSize = 26.sp)
-    }
-}
-
-/** Barra de progreso naranja con el valor en el centro. */
-@Composable
-fun BarraProgreso(actual: Int, total: Int, modifier: Modifier = Modifier, icono: String = "🏆") {
-    val fraccion = if (total <= 0) 0f else (actual.toFloat() / total).coerceIn(0f, 1f)
-    val forma = RoundedCornerShape(50)
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(forma)
-            .background(Tinta)
-            .padding(3.dp)
-            .clip(forma)
-            .background(MoradoOscuro)
-    ) {
-        if (fraccion > 0f) {
-            Box(
-                Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraccion)
-                    .clip(forma)
-                    .background(Brush.verticalGradient(listOf(Amarillo, Naranja)))
-            )
-        }
-        Text(icono, Modifier.align(Alignment.CenterStart).padding(start = 10.dp), fontSize = 20.sp)
-        TextoJuego("$actual/$total", Modifier.align(Alignment.Center), tamano = 18.sp, grosor = 5f)
     }
 }
 

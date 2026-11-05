@@ -19,7 +19,19 @@ data class PeticionLogin(
 )
 
 /**
- * Respuesta de POST /api/login.
+ * Petición de POST /api/registro. El selfie va en Base64 dentro del JSON: es
+ * un dato biométrico y viaja igual que el resto, en claro por HTTP.
+ */
+@Serializable
+data class PeticionRegistro(
+    val usuario: String,
+    val clave: String,
+    val nombre: String,
+    val selfie: String
+)
+
+/**
+ * Respuesta de POST /api/login y de POST /api/registro.
  *
  * ATENCIÓN — sesión 2.4.3: esta clase guarda un token de sesión y, por ser una
  * clase de datos, el compilador le genera un toString() que incluye TODOS los
@@ -52,7 +64,9 @@ data class Mision(
     val titulo: String = "",
     val descripcion: String = "",
     val puntos: Int = 0,
-    val fecha: String = ""
+    val fecha: String = "",
+    val grupo: String = "",
+    val objetivo: String = ""
 )
 
 /** Envoltorio de la respuesta de GET /api/misiones */
@@ -61,11 +75,12 @@ data class RespuestaMisiones(
     val misiones: List<Mision>
 )
 
-/** Un miembro de un grupo. */
+/** Un miembro de un grupo, con los puntos que lleva en él. */
 @Serializable
 data class Miembro(
     val usuario: String = "",
-    val nombre: String = ""
+    val nombre: String = "",
+    val puntos: Int = 0
 )
 
 /**
@@ -80,6 +95,7 @@ data class Grupo(
     val contexto: String = "",
     val codigo: String = "",
     val creador: String = "",
+    val empezada: Boolean = false,
     val miembros: List<Miembro> = emptyList()
 )
 
@@ -100,6 +116,23 @@ data class PeticionGrupo(
 @Serializable
 data class PeticionUnirse(
     val codigo: String
+)
+
+/** Petición de POST /api/misiones/{id}/foto: la foto en Base64. */
+@Serializable
+data class PeticionFoto(
+    val foto: String
+)
+
+/**
+ * Respuesta de POST /api/misiones/{id}/foto y /saltar. `puntos` es lo que se
+ * suma (o se resta, al saltar); `motivo` es la explicación de la IA.
+ */
+@Serializable
+data class ResultadoMision(
+    val valida: Boolean = false,
+    val motivo: String = "",
+    val puntos: Int = 0
 )
 
 /**
@@ -154,5 +187,7 @@ sealed interface MotivoError {
     data object CredencialesNoValidas : MotivoError
     data object SesionCaducada : MotivoError
     data object CodigoNoValido : MotivoError
+    data object UsuarioOcupado : MotivoError
+    data object MisionNoActiva : MotivoError
     data object Desconocido : MotivoError
 }

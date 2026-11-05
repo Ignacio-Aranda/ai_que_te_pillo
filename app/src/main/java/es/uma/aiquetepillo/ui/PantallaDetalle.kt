@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import es.uma.aiquetepillo.modelo.*
 import es.uma.aiquetepillo.ui.juego.*
+import es.uma.aiquetepillo.ui.theme.Lavanda
 import es.uma.aiquetepillo.ui.theme.MoradoClaro
 import es.uma.aiquetepillo.ui.theme.MoradoOscuro
 
@@ -106,6 +107,15 @@ fun PantallaDetalle(
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        if (estado.datos.objetivo.isNotBlank()) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                "🎯 Objetivo: ${estado.datos.objetivo}   👥 ${estado.datos.grupo}",
+                                color = Lavanda,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                         Spacer(Modifier.height(14.dp))
                         Pastilla("⭐", puntosTexto(estado.datos.puntos), Modifier.align(Alignment.CenterHorizontally))
                         Spacer(Modifier.height(6.dp))
@@ -138,5 +148,7 @@ private fun mensajeDeError(motivo: MotivoError): String = when (motivo) {
     MotivoError.CredencialesNoValidas -> "Usuario o contraseña incorrectos."
     MotivoError.SesionCaducada -> "La sesión ha caducado. Vuelve a entrar."
     MotivoError.CodigoNoValido -> "Ese código de invitación no existe."
+    MotivoError.UsuarioOcupado -> "Ese nombre de usuario ya está cogido."
+    MotivoError.MisionNoActiva -> "Esa misión ya no está activa. Mira la nueva."
     MotivoError.Desconocido -> "Ha ocurrido un error. Inténtalo de nuevo."
 }

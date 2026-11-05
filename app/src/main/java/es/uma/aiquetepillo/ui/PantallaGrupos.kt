@@ -98,9 +98,20 @@ fun ContenidoGrupos(
     }
 }
 
-/** Detalle de un grupo: el código para invitar y los miembros. */
+/**
+ * Detalle de un grupo: el código para invitar, la partida y los miembros. Solo
+ * quien creó el grupo puede empezar la partida; el servidor lo vuelve a
+ * comprobar, porque esconder el botón no protege nada.
+ */
 @Composable
-fun PantallaGrupo(grupo: Grupo?, cargando: Boolean, onVolver: () -> Unit) {
+fun PantallaGrupo(
+    grupo: Grupo?,
+    cargando: Boolean,
+    usuario: String?,
+    partida: EstadoUi<Grupo>,
+    onEmpezar: (Int) -> Unit,
+    onVolver: () -> Unit
+) {
     val contexto = LocalContext.current
 
     PantallaConCabecera(grupo?.nombre?.uppercase() ?: "GRUPO", onVolver) {
@@ -134,6 +145,41 @@ fun PantallaGrupo(grupo: Grupo?, cargando: Boolean, onVolver: () -> Unit) {
                 contexto.startActivity(Intent.createChooser(envio, "Invitar al grupo"))
             }
         )
+        Spacer(Modifier.height(16.dp))
+
+        when {
+            grupo.empezada -> TextoJuego("🎮 PARTIDA EN MARCHA", Modifier.fillMaxWidth(), tamano = 20.sp, color = Amarillo)
+            grupo.creador == usuario -> {
+                val generando = partida is EstadoUi.Cargando
+                BotonGrande(
+                    texto = if (generando) "CREANDO MISIONES..." else "EMPEZAR PARTIDA",
+                    onClick = { onEmpezar(grupo.id) },
+                    habilitado = grupo.miembros.size >= 2 && !generando
+                )
+                if (grupo.miembros.size < 2) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Hacen falta al menos dos jugadores: invita a alguien.",
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            else -> {
+                val creador = grupo.miembros.firstOrNull { it.usuario == grupo.creador }?.nombre ?: "quien creó el grupo"
+                Text(
+                    "Esperando a que $creador empiece la partida.",
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        if (partida is EstadoUi.Error) {
+            Spacer(Modifier.height(12.dp))
+            Aviso(textoDeError(partida.motivo))
+        }
         Spacer(Modifier.height(20.dp))
 
         TextoJuego("MIEMBROS (${grupo.miembros.size})", tamano = 18.sp, alineacion = TextAlign.Start)
@@ -143,9 +189,74 @@ fun PantallaGrupo(grupo: Grupo?, cargando: Boolean, onVolver: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Medallon(miembro.nombre.firstOrNull()?.uppercase() ?: "?", tamano = 44.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text(miembro.nombre, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    Text(
+                        miembro.nombre,
+                        color = if (miembro.usuario == usuario) Amarillo else Color.White,
+                        fontSize = 17.sp,
+                        modifier = Modifier.weight(1f)
+                    )
                     if (miembro.usuario == grupo.creador) Text("👑", fontSize = 22.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Pastilla("⭐", "${miembro.puntos}")
                 }
+            }
+        }
+    }
+}
+
+/** Clasificación de cada grupo del jugador, por puntos. */
+@Composable
+fun ContenidoRanking(estado: EstadoUi<List<Grupo>>, usuario: String, onRecargar: () -> Unit) {
+    when (estado) {
+        is EstadoUi.Reposo, is EstadoUi.Cargando -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color.White)
+        }
+        is EstadoUi.Error -> Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+            Aviso(textoDeError(estado.motivo))
+            Spacer(Modifier.height(16.dp))
+            BotonGrande("REINTENTAR", onRecargar)
+        }
+        is EstadoUi.Exito -> if (estado.datos.isEmpty()) {
+            MensajeVacio("🏆", "SIN CLASIFICACIÓN", "Únete a un grupo para competir con tus amigos.")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(estado.datos) { grupo -> TablaGrupo(grupo, usuario) }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TablaGrupo(grupo: Grupo, usuario: String) {
+    TarjetaJuego(Modifier.fillMaxWidth()) {
+        TextoJuego(grupo.nombre.uppercase(), Modifier.fillMaxWidth(), tamano = 20.sp)
+        Spacer(Modifier.height(8.dp))
+        grupo.miembros.sortedByDescending { it.puntos }.forEach { miembro ->
+            // Con los mismos puntos se comparte puesto (y medalla)
+            val posicion = grupo.miembros.count { it.puntos > miembro.puntos }
+            Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when (posicion) { 0 -> "🥇"; 1 -> "🥈"; 2 -> "🥉"; else -> "${posicion + 1}" },
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(40.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Medallon(miembro.nombre.firstOrNull()?.uppercase() ?: "?", tamano = 40.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    miembro.nombre,
+                    color = if (miembro.usuario == usuario) Amarillo else Color.White,
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Pastilla("⭐", "${miembro.puntos}")
             }
         }
     }
@@ -225,7 +336,11 @@ fun PantallaUnirse(
             )
         } else {
             TarjetaJuego(Modifier.fillMaxWidth(), fondo = MoradoOscuro) {
-                Text("TE HAN INVITADO A", color = Amarillo, modifier = Modifier.align(Alignment.CenterHorizontally))
+                Text(
+                    if (yaEsMiembro) "YA ESTÁS EN" else "TE HAN INVITADO A",
+                    color = Amarillo,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
                 Spacer(Modifier.height(8.dp))
                 TextoJuego(grupo.nombre, Modifier.fillMaxWidth(), tamano = 26.sp, grosor = 8f)
                 if (grupo.contexto.isNotBlank()) {

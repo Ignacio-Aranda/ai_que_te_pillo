@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +26,8 @@ import es.uma.aiquetepillo.ui.theme.Amarillo
 @Composable
 fun PantallaLogin(
     estado: EstadoUi<RespuestaLogin>,
-    onEntrar: (String, String) -> Unit
+    onEntrar: (String, String) -> Unit,
+    onRegistro: () -> Unit
 ) {
     var usuario by remember { mutableStateOf("") }
     var clave by remember { mutableStateOf("") }
@@ -70,6 +72,11 @@ fun PantallaLogin(
                 is EstadoUi.Cargando -> CircularProgressIndicator(color = Color.White)
                 else -> Unit
             }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onRegistro) {
+                Text("¿No tienes cuenta? ", color = Color.White, fontSize = 16.sp)
+                Text("REGÍSTRATE", color = Amarillo, fontSize = 16.sp)
+            }
         }
     }
 }
@@ -86,5 +93,7 @@ fun textoDeError(motivo: MotivoError): String = when (motivo) {
     MotivoError.CredencialesNoValidas -> "Usuario o contraseña incorrectos."
     MotivoError.SesionCaducada -> "La sesión ha caducado. Vuelve a entrar."
     MotivoError.CodigoNoValido -> "Ese código de invitación no existe."
+    MotivoError.UsuarioOcupado -> "Ese nombre de usuario ya está cogido."
+    MotivoError.MisionNoActiva -> "Esa misión ya no está activa. Mira la nueva."
     MotivoError.Desconocido -> "Ha ocurrido un error. Inténtalo de nuevo."
 }

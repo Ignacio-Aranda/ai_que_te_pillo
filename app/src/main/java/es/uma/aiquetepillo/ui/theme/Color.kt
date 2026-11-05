@@ -13,6 +13,7 @@ val Naranja = Color(0xFFF79A2E)
 val Verde = Color(0xFF6BD85A)
 val VerdeOscuro = Color(0xFF2F8F2A)
 val Rojo = Color(0xFFE5484D)
+val RojoOscuro = Color(0xFFA8323A)
 
 // Pestañas de la barra inferior
 val LavandaClara = Color(0xFFECE8FF)

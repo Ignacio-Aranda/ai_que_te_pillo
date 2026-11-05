@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,13 +32,26 @@ fun Navegacion(vistaModelo: VistaModelo) {
     val estadoGrupos by vistaModelo.estadoGrupos.collectAsState()
     val estadoInvitacion by vistaModelo.estadoInvitacion.collectAsState()
     val estadoAltaGrupo by vistaModelo.estadoAltaGrupo.collectAsState()
+    val estadoRegistro by vistaModelo.estadoRegistro.collectAsState()
+    val selfie by vistaModelo.selfie.collectAsState()
+    val estadoPartida by vistaModelo.estadoPartida.collectAsState()
+    val estadoMision by vistaModelo.estadoMision.collectAsState()
+    val usuario = (estadoLogin as? EstadoUi.Exito)?.datos?.usuario
 
-    NavHost(navController = navController, startDestination = "login") {
+    // Con una sesión guardada se empieza en la lista. Es también la pantalla a
+    // la que se vuelve desde un enlace profundo abierto con la app cerrada.
+    val inicio = remember { if (estadoLogin is EstadoUi.Exito) "lista" else "login" }
+
+    NavHost(navController = navController, startDestination = inicio) {
 
         composable("login") {
             PantallaLogin(
                 estado = estadoLogin,
-                onEntrar = { usuario, clave -> vistaModelo.entrar(usuario, clave) }
+                onEntrar = { usuario, clave -> vistaModelo.entrar(usuario, clave) },
+                onRegistro = {
+                    vistaModelo.olvidarRegistro()
+                    navController.navigate("registro")
+                }
             )
             // La navegación es un efecto: dentro de LaunchedEffect se lanza una
             // sola vez por cambio de estado, no en cada redibujado de la pantalla.
@@ -50,14 +64,50 @@ fun Navegacion(vistaModelo: VistaModelo) {
             }
         }
 
+        composable("registro") {
+            PantallaRegistro(
+                estado = estadoRegistro,
+                selfie = selfie,
+                onHacerSelfie = { navController.navigate("selfie") },
+                onCrear = { usuario, clave, nombre -> vistaModelo.registrarse(usuario, clave, nombre) },
+                onVolver = { navController.popBackStack() }
+            )
+            // Al crear la cuenta la sesión queda iniciada, como al entrar
+            LaunchedEffect(estadoLogin) {
+                if (estadoLogin is EstadoUi.Exito) {
+                    navController.navigate("lista") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            }
+        }
+
+        // Sin enlace profundo, igual que la cámara de las misiones
+        composable("selfie") {
+            PantallaCamara(
+                fichero = vistaModelo.ficheroSelfie(),
+                frontal = true,
+                titulo = "¡SONRÍE!",
+                onHecha = {
+                    vistaModelo.selfieHecho()
+                    navController.popBackStack()
+                },
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
         composable("lista") {
             PantallaLista(
+                usuario = usuario.orEmpty(),
                 nombre = (estadoLogin as? EstadoUi.Exito)?.datos?.nombre.orEmpty(),
                 estado = estadoLista,
                 fotos = fotos,
                 grupos = estadoGrupos,
-                onRecargar = { vistaModelo.cargarMisiones() },
-                onRecargarGrupos = { vistaModelo.cargarGrupos() },
+                resultado = estadoMision,
+                onRecargar = {
+                    vistaModelo.cargarMisiones()
+                    vistaModelo.cargarGrupos()
+                },
                 onSalir = {
                     vistaModelo.salir()
                     navController.navigate("login") {
@@ -66,6 +116,9 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 },
                 onAbrir = { identificador -> navController.navigate("mision/$identificador") },
                 onHacerFoto = { identificador -> navController.navigate("camara/$identificador") },
+                onEnviarFoto = { identificador -> vistaModelo.enviarFoto(identificador) },
+                onElegir = { vistaModelo.olvidarResultadoMision() },
+                onSaltar = { identificador -> vistaModelo.saltarMision(identificador) },
                 onCrearGrupo = {
                     vistaModelo.olvidarAltaGrupo()
                     navController.navigate("nuevo-grupo")
@@ -74,7 +127,10 @@ fun Navegacion(vistaModelo: VistaModelo) {
                     vistaModelo.olvidarAltaGrupo()
                     navController.navigate("unirse")
                 },
-                onAbrirGrupo = { identificador -> navController.navigate("grupo/$identificador") }
+                onAbrirGrupo = { identificador ->
+                    vistaModelo.olvidarAltaGrupo()
+                    navController.navigate("grupo/$identificador")
+                }
             )
         }
 
@@ -83,10 +139,14 @@ fun Navegacion(vistaModelo: VistaModelo) {
             arguments = listOf(navArgument("id") { type = NavType.IntType })
         ) { entrada ->
             val id = entrada.arguments?.getInt("id") ?: 0
-            LaunchedEffect(Unit) { if (estadoGrupos is EstadoUi.Reposo) vistaModelo.cargarGrupos() }
+            // Siempre al abrir: puede haber entrado alguien desde la última vez
+            LaunchedEffect(Unit) { vistaModelo.cargarGrupos() }
             PantallaGrupo(
                 grupo = (estadoGrupos as? EstadoUi.Exito)?.datos?.find { it.id == id },
                 cargando = estadoGrupos is EstadoUi.Reposo || estadoGrupos is EstadoUi.Cargando,
+                usuario = usuario,
+                partida = estadoPartida,
+                onEmpezar = { vistaModelo.empezarPartida(it) },
                 onVolver = { navController.popBackStack() }
             )
         }

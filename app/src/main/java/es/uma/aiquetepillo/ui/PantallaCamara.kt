@@ -2,10 +2,9 @@ package es.uma.aiquetepillo.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
-import android.media.ExifInterface
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -28,21 +27,54 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import es.uma.aiquetepillo.FotoMision
+import es.uma.aiquetepillo.Foto
+import es.uma.aiquetepillo.datos.cargarReducida
 import es.uma.aiquetepillo.ui.juego.*
 import es.uma.aiquetepillo.ui.theme.Tinta
 import java.io.File
 
 /**
- * Cámara de la misión, con CameraX dentro de la aplicación.
+ * Devuelve una acción que abre la cámara: si falta el permiso CAMERA, lo pide
+ * antes y solo sigue si se concede. Si se deniega no se insiste, y el resto de
+ * la aplicación sigue funcionando; se avisa de que se puede activar en los
+ * ajustes, porque tras dos negativas Android ya no vuelve a preguntar.
+ */
+@Composable
+fun rememberAbrirCamara(onAbrir: () -> Unit): () -> Unit {
+    val contexto = LocalContext.current
+    val lanzador = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
+        if (concedido) onAbrir()
+        else Toast.makeText(
+            contexto,
+            "Sin permiso de cámara. Puedes activarlo en Ajustes > Aplicaciones > AI que te pillo.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+    return {
+        val concedido = ContextCompat.checkSelfPermission(contexto, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (concedido) onAbrir() else lanzador.launch(Manifest.permission.CAMERA)
+    }
+}
+
+/**
+ * Cámara de la aplicación, con CameraX: la trasera para las misiones y la
+ * frontal para el selfie de registro.
  *
  * Se usa CameraX y no el Intent ACTION_IMAGE_CAPTURE porque con el Intent la
  * foto la hace la aplicación de cámara del sistema y no hace falta el permiso
- * CAMERA: así la foto es siempre en directo y el permiso peligroso tiene un uso
- * real. La foto se guarda en `fichero`, dentro del directorio privado.
+ * CAMERA: así la foto es siempre en directo (no se puede elegir una de la
+ * galería) y el permiso peligroso tiene un uso real. La foto se guarda en
+ * `fichero`, dentro del directorio privado.
  */
 @Composable
-fun PantallaCamara(fichero: File, onHecha: () -> Unit, onVolver: () -> Unit) {
+fun PantallaCamara(
+    fichero: File,
+    onHecha: () -> Unit,
+    onVolver: () -> Unit,
+    frontal: Boolean = false,
+    titulo: String = "¡PILLADO!"
+) {
     val contexto = LocalContext.current
     val cicloDeVida = LocalLifecycleOwner.current
     val captura = remember { ImageCapture.Builder().build() }
@@ -68,7 +100,7 @@ fun PantallaCamara(fichero: File, onHecha: () -> Unit, onVolver: () -> Unit) {
             ) {
                 BotonRedondo("⬅️", "Volver", onVolver)
                 Spacer(Modifier.weight(1f))
-                TextoJuego("¡PILLADO!", tamano = 22.sp)
+                TextoJuego(titulo, tamano = 22.sp)
             }
 
             Box(
@@ -92,7 +124,10 @@ fun PantallaCamara(fichero: File, onHecha: () -> Unit, onVolver: () -> Unit) {
                                     try {
                                         proveedor.unbindAll()
                                         proveedor.bindToLifecycle(
-                                            cicloDeVida, CameraSelector.DEFAULT_BACK_CAMERA, vistaPrevia, captura
+                                            cicloDeVida,
+                                            if (frontal) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA,
+                                            vistaPrevia,
+                                            captura
                                         )
                                     } catch (e: Exception) {
                                         error = "No se ha podido abrir la cámara."
@@ -140,39 +175,18 @@ fun PantallaCamara(fichero: File, onHecha: () -> Unit, onVolver: () -> Unit) {
 
 /** Miniatura de una foto guardada, reducida y girada según su EXIF. */
 @Composable
-fun MiniaturaFoto(foto: FotoMision, modifier: Modifier = Modifier) {
+fun MiniaturaFoto(foto: Foto, modifier: Modifier = Modifier, descripcion: String = "Foto de la misión") {
     val imagen = remember(foto.fichero.path, foto.version) {
         cargarReducida(foto.fichero, ladoMaximo = 800)?.asImageBitmap()
     }
     if (imagen != null) {
         Image(
             bitmap = imagen,
-            contentDescription = "Foto de la misión",
+            contentDescription = descripcion,
             contentScale = ContentScale.Crop,
             modifier = modifier
                 .clip(RoundedCornerShape(18.dp))
                 .border(3.dp, Tinta, RoundedCornerShape(18.dp))
         )
     }
-}
-
-private fun cargarReducida(fichero: File, ladoMaximo: Int): Bitmap? {
-    if (!fichero.exists()) return null
-    val medidas = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(fichero.path, medidas)
-    var reduccion = 1
-    while (maxOf(medidas.outWidth, medidas.outHeight) / reduccion > ladoMaximo * 2) reduccion *= 2
-    val mapa = BitmapFactory.decodeFile(fichero.path, BitmapFactory.Options().apply { inSampleSize = reduccion })
-        ?: return null
-
-    // CameraX guarda la orientación en el EXIF en lugar de girar los píxeles
-    val grados = when (ExifInterface(fichero.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, 0)) {
-        ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-        ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-        ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-        else -> 0f
-    }
-    if (grados == 0f) return mapa
-    val giro = Matrix().apply { postRotate(grados) }
-    return Bitmap.createBitmap(mapa, 0, 0, mapa.width, mapa.height, giro, true)
 }

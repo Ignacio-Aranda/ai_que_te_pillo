@@ -1,5 +1,6 @@
 package es.uma.aiquetepillo.datos
 
+import android.util.Base64
 import android.util.Log
 import es.uma.aiquetepillo.modelo.*
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +58,7 @@ class Repositorio(
                    ---------------------------------------------------------- */
                 Log.d("Repositorio", "Login correcto: $respuesta")
 
-                sesion.guardarSesion(respuesta.token, respuesta.usuario)
+                sesion.guardarSesion(respuesta.token, respuesta.usuario, respuesta.nombre)
                 EstadoUi.Exito(respuesta)
 
             } catch (e: HttpException) {
@@ -81,6 +82,43 @@ class Repositorio(
                  * devuelve e.message a la interfaz. Esos mensajes llevan rutas,
                  * consultas y direcciones de servidor.
                  */
+                EstadoUi.Error(MotivoError.Desconocido)
+            }
+        }
+
+    /**
+     * La sesión guardada de la vez anterior, si la hay: así la aplicación no
+     * pide entrar cada vez que se abre. El rol no se guarda porque la
+     * aplicación no lo usa.
+     */
+    fun sesionGuardada(): RespuestaLogin? {
+        val token = sesion.obtenerToken() ?: return null
+        val usuario = sesion.obtenerUsuario() ?: return null
+        return RespuestaLogin(token, usuario, sesion.obtenerNombre() ?: usuario, rol = "")
+    }
+
+    /**
+     * Crea la cuenta con su selfie y deja la sesión iniciada, igual que el
+     * acceso. El selfie se borra del dispositivo en cuanto el servidor lo tiene.
+     */
+    suspend fun registrarse(usuario: String, clave: String, nombre: String): EstadoUi<RespuestaLogin> =
+        withContext(Dispatchers.IO) {
+            val selfie = jpegParaSubir(fotos.ficheroSelfie())
+                ?: return@withContext EstadoUi.Error(MotivoError.Desconocido)
+            try {
+                val respuesta = api.registro(
+                    PeticionRegistro(usuario, clave, nombre, Base64.encodeToString(selfie, Base64.NO_WRAP))
+                )
+                sesion.guardarSesion(respuesta.token, respuesta.usuario, respuesta.nombre)
+                fotos.ficheroSelfie().delete()
+                EstadoUi.Exito(respuesta)
+            } catch (e: HttpException) {
+                // 409: el usuario ya existe. Como en el acceso, el servidor lo confirma
+                if (e.code() == 409) EstadoUi.Error(MotivoError.UsuarioOcupado)
+                else EstadoUi.Error(MotivoError.Desconocido)
+            } catch (e: IOException) {
+                EstadoUi.Error(MotivoError.SinConexion)
+            } catch (e: Exception) {
                 EstadoUi.Error(MotivoError.Desconocido)
             }
         }
@@ -172,16 +210,45 @@ class Repositorio(
 
     /** El grupo al que lleva un código, para confirmar antes de unirse. */
     suspend fun verInvitacion(codigo: String): EstadoUi<Grupo> =
-        conToken { token -> api.invitacion(token, codigo.trim().uppercase()) }
+        conToken(si404 = MotivoError.CodigoNoValido) { token -> api.invitacion(token, codigo.trim().uppercase()) }
 
     suspend fun unirse(codigo: String): EstadoUi<Grupo> =
-        conToken { token -> api.unirse(token, PeticionUnirse(codigo.trim().uppercase())) }
+        conToken(si404 = MotivoError.CodigoNoValido) { token ->
+            api.unirse(token, PeticionUnirse(codigo.trim().uppercase()))
+        }
+
+    /** Empieza la partida: el servidor pide a la IA una misión para cada jugador. */
+    suspend fun empezarPartida(idGrupo: Int): EstadoUi<Grupo> =
+        conToken { token -> api.empezar(token, idGrupo) }
+
+    /**
+     * Sube la foto de una misión para que la IA la compruebe. Si la da por
+     * buena, la copia local ya no hace falta y se borra.
+     */
+    suspend fun enviarFoto(idMision: Int): EstadoUi<ResultadoMision> {
+        val foto = withContext(Dispatchers.IO) { jpegParaSubir(fotos.ficheroPara(idMision)) }
+            ?: return EstadoUi.Error(MotivoError.Desconocido)
+        val resultado = conToken(si404 = MotivoError.MisionNoActiva) { token ->
+            api.enviarFoto(token, idMision, PeticionFoto(Base64.encodeToString(foto, Base64.NO_WRAP)))
+        }
+        if (resultado is EstadoUi.Exito && resultado.datos.valida) fotos.borrar(idMision)
+        return resultado
+    }
+
+    suspend fun saltarMision(idMision: Int): EstadoUi<ResultadoMision> {
+        val resultado = conToken(si404 = MotivoError.MisionNoActiva) { token -> api.saltar(token, idMision) }
+        if (resultado is EstadoUi.Exito) fotos.borrar(idMision)
+        return resultado
+    }
 
     /**
      * Ejecuta una llamada autenticada y traduce el resultado a un EstadoUi.
-     * Un 404 en los grupos significa que el código de invitación no existe.
+     * `si404` dice qué significa que el servidor no encuentre lo pedido.
      */
-    private suspend fun <T> conToken(llamada: suspend (String) -> T): EstadoUi<T> =
+    private suspend fun <T> conToken(
+        si404: MotivoError = MotivoError.Desconocido,
+        llamada: suspend (String) -> T
+    ): EstadoUi<T> =
         withContext(Dispatchers.IO) {
             val token = sesion.obtenerToken()
                 ?: return@withContext EstadoUi.Error(MotivoError.SesionCaducada)
@@ -190,7 +257,7 @@ class Repositorio(
             } catch (e: HttpException) {
                 when (e.code()) {
                     401 -> EstadoUi.Error(MotivoError.SesionCaducada)
-                    404 -> EstadoUi.Error(MotivoError.CodigoNoValido)
+                    404 -> EstadoUi.Error(si404)
                     else -> EstadoUi.Error(MotivoError.Desconocido)
                 }
             } catch (e: IOException) {
@@ -218,6 +285,9 @@ class Repositorio(
             sesion.cerrarSesion()
         }
     }
+
+    /** Fichero donde se guarda el selfie hasta que se sube con el registro. */
+    fun ficheroSelfie(): File = fotos.ficheroSelfie()
 
     /** Fichero donde se guarda la foto de una misión. */
     fun ficheroFoto(idMision: Int): File = fotos.ficheroPara(idMision)
