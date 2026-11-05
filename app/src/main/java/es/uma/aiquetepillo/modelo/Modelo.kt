@@ -45,8 +45,7 @@ data class PeticionRegistro(
 data class RespuestaLogin(
     val token: String,
     val usuario: String,
-    val nombre: String,
-    val rol: String
+    val nombre: String
 )
 
 /**
@@ -140,21 +139,6 @@ data class ResultadoMision(
     val valida: Boolean = false,
     val motivo: String = "",
     val puntos: Int = 0
-)
-
-/**
- * Datos personales devueltos por GET /api/perfil.
- *
- * Fíjate en que aquí hay un DNI. Cuando en la sección 6.2 hagáis el inventario
- * de datos sensibles, éste es uno de los que hay que anotar.
- */
-@Serializable
-data class Perfil(
-    val usuario: String = "",
-    val nombre: String = "",
-    val correo: String = "",
-    val dni: String = "",
-    val rol: String = ""
 )
 
 /* --------------------------------------------------------------------------

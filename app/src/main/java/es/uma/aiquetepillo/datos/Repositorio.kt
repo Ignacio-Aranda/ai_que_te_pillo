@@ -91,13 +91,12 @@ class Repositorio(
 
     /**
      * La sesión guardada de la vez anterior, si la hay: así la aplicación no
-     * pide entrar cada vez que se abre. El rol no se guarda porque la
-     * aplicación no lo usa.
+     * pide entrar cada vez que se abre.
      */
     fun sesionGuardada(): RespuestaLogin? {
         val token = sesion.obtenerToken() ?: return null
         val usuario = sesion.obtenerUsuario() ?: return null
-        return RespuestaLogin(token, usuario, sesion.obtenerNombre() ?: usuario, rol = "")
+        return RespuestaLogin(token, usuario, sesion.obtenerNombre() ?: usuario)
     }
 
     /**
@@ -214,16 +213,6 @@ class Repositorio(
                 }
             }
         }
-
-    suspend fun obtenerPerfil(): EstadoUi<Perfil> = withContext(Dispatchers.IO) {
-        val token = sesion.obtenerToken()
-            ?: return@withContext EstadoUi.Error(MotivoError.SesionCaducada)
-        try {
-            EstadoUi.Exito(api.perfil("Bearer $token"))
-        } catch (e: Exception) {
-            EstadoUi.Error(MotivoError.Desconocido)
-        }
-    }
 
     suspend fun obtenerMision(id: Int): EstadoUi<Mision> =
         withContext(Dispatchers.IO) {

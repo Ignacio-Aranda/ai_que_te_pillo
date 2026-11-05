@@ -62,9 +62,8 @@ MODELO_IA = os.environ.get("MODELO_IA", "anthropic/claude-haiku-5.5")
 
 # --- Datos de ejemplo (en memoria) --------------------------------------
 USUARIOS = {
-    "ana":    {"clave": "Practica2024", "nombre": "Ana Ruiz",     "correo": "ana@uma.es",    "dni": "12345678Z", "rol": "usuario"},
-    "luis":   {"clave": "Practica2024", "nombre": "Luis Moreno",  "correo": "luis@uma.es",   "dni": "87654321X", "rol": "usuario"},
-    "admin":  {"clave": "Administrador", "nombre": "Administración", "correo": "admin@uma.es", "dni": "11111111H", "rol": "administrador"},
+    "ana":    {"clave": "Practica2024", "nombre": "Ana Ruiz"},
+    "luis":   {"clave": "Practica2024", "nombre": "Luis Moreno"},
 }
 
 # Selfies de registro (JPEG), por usuario. Las cuentas de ejemplo no tienen.
@@ -82,7 +81,6 @@ MISIONES = {
     "luis": [
         {"id": 3, "titulo": "Pilla a Ana bailando", "descripcion": "Haz una foto a Ana bailando en medio de la habitación.", "puntos": 3, "fecha": "2026-11-05", "grupo": 1, "objetivo": "ana"},
     ],
-    "admin": [],
 }
 
 # Grupos de juego. Los miembros se guardan por nombre de usuario; `titulos`
@@ -359,26 +357,6 @@ class Manejador(BaseHTTPRequestHandler):
                 return self._responder(401, {"error": "Token ausente o no válido"})
             return self._responder(200, {"misiones": [mision_publica(m) for m in MISIONES.get(usuario, [])]})
 
-        if ruta == "/api/perfil":
-            usuario = self._usuario_autenticado()
-            if usuario is None:
-                return self._responder(401, {"error": "Token ausente o no válido"})
-            u = USUARIOS[usuario]
-            return self._responder(200, {
-                "usuario": usuario, "nombre": u["nombre"],
-                "correo": u["correo"], "dni": u["dni"], "rol": u["rol"]
-            })
-
-        # Ruta administrativa sin comprobación de rol: hallazgo previsto para el Bloque IV
-        if ruta == "/api/admin/usuarios":
-            usuario = self._usuario_autenticado()
-            if usuario is None:
-                return self._responder(401, {"error": "Token ausente o no válido"})
-            return self._responder(200, {"usuarios": [
-                {"usuario": k, "nombre": v["nombre"], "correo": v["correo"], "rol": v["rol"]}
-                for k, v in list(USUARIOS.items())
-            ]})
-
         if ruta == "/api/grupos":
             usuario = self._usuario_autenticado()
             if usuario is None:
@@ -446,12 +424,12 @@ class Manejador(BaseHTTPRequestHandler):
                 if usuario in USUARIOS:
                     # Confirma qué cuentas existen, igual que el inicio de sesión: intencionado
                     return self._responder(409, {"error": "El usuario ya existe"})
-                USUARIOS[usuario] = {"clave": clave, "nombre": nombre, "correo": "", "dni": "", "rol": "usuario"}
+                USUARIOS[usuario] = {"clave": clave, "nombre": nombre}
                 SELFIES[usuario] = selfie
                 MISIONES.setdefault(usuario, [])
             token = crear_token(usuario)
             SESIONES[token] = usuario
-            return self._responder(201, {"token": token, "usuario": usuario, "nombre": nombre, "rol": "usuario"})
+            return self._responder(201, {"token": token, "usuario": usuario, "nombre": nombre})
 
         if ruta == "/api/login":
             usuario = texto(cuerpo, "usuario").lower()
@@ -466,8 +444,7 @@ class Manejador(BaseHTTPRequestHandler):
             return self._responder(200, {
                 "token": token,
                 "usuario": usuario,
-                "nombre": USUARIOS[usuario]["nombre"],
-                "rol": USUARIOS[usuario]["rol"]
+                "nombre": USUARIOS[usuario]["nombre"]
             })
 
         if ruta == "/api/selfie":
@@ -620,6 +597,6 @@ if __name__ == "__main__":
     else:
         print("MODO TLS: certificado %s" % CERT)
     print("Desde el emulador de Android, la dirección del anfitrión es 10.0.2.2")
-    print("Usuarios de prueba: ana / luis / admin  ·  contraseña: Practica2024 (admin: Administrador)")
+    print("Usuarios de prueba: ana / luis  ·  contraseña: Practica2024")
     print("IA: %s" % (MODELO_IA if CLAVE_IA else "MODO SIN IA (falta OPENROUTER_API_KEY)"))
     servidor.serve_forever()

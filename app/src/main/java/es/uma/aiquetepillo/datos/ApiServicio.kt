@@ -62,9 +62,6 @@ interface ApiServicio {
         @Path("id") id: Int
     ): Mision
 
-    @GET("api/perfil")
-    suspend fun perfil(@Header("Authorization") autorizacion: String): Perfil
-
     @GET("api/grupos")
     suspend fun grupos(@Header("Authorization") autorizacion: String): RespuestaGrupos
 

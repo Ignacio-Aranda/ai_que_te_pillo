@@ -63,11 +63,10 @@ el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
 
 ## Usuarios de prueba
 
-| Usuario | Contraseña | Rol |
-|---|---|---|
-| `ana` | `Practica2024` | usuario |
-| `luis` | `Practica2024` | usuario |
-| `admin` | `Administrador` | administrador |
+| Usuario | Contraseña |
+|---|---|
+| `ana` | `Practica2024` |
+| `luis` | `Practica2024` |
 
 `ana` y `luis` comparten el grupo «Casa rural» (código `K7P2QX`), con la partida
 empezada y una misión cada uno. Las cuentas nuevas se crean desde la aplicación
@@ -82,12 +81,10 @@ reiniciar el servidor.
 | POST | `/api/registro` | no | Recibe `{usuario, clave, nombre, selfie}` con el selfie en Base64; crea la cuenta y devuelve lo mismo que el acceso |
 | POST | `/api/selfie` | Bearer | Recibe `{selfie}` en Base64 y lo guarda si la cuenta aún no tiene (las de ejemplo). 409 si ya tiene |
 | GET | `/api/usuarios/{usuario}/selfie` | Bearer | Devuelve el selfie (JPEG) a su dueño y a quien comparte un grupo con él; 404 para el resto o si no tiene |
-| POST | `/api/login` | no | Recibe `{usuario, clave}`; devuelve `{token, usuario, nombre, rol}` |
+| POST | `/api/login` | no | Recibe `{usuario, clave}`; devuelve `{token, usuario, nombre}` |
 | GET | `/api/misiones` | Bearer | Lista las misiones activas del usuario autenticado, una por grupo con la partida empezada |
 | POST | `/api/misiones` | Bearer | Crea una misión a partir de `{titulo, descripcion, puntos}` |
 | GET | `/api/misiones/{id}` | Bearer | Devuelve una misión por su identificador |
-| GET | `/api/perfil` | Bearer | Datos personales del usuario autenticado |
-| GET | `/api/admin/usuarios` | Bearer | Listado de todas las cuentas |
 | GET | `/api/grupos` | Bearer | Lista los grupos del usuario autenticado, con sus miembros |
 | POST | `/api/grupos` | Bearer | Crea un grupo a partir de `{nombre, contexto}`; el creador entra como miembro y se genera un código de invitación |
 | GET | `/api/invitaciones/{codigo}` | Bearer | Vista previa del grupo de un código, para confirmar antes de unirse |
@@ -154,7 +151,6 @@ localizar. **No debe usarse fuera del aula.**
 | En modo sin IA, cualquier foto se da por buena | Solo para desarrollo |
 | Los códigos de invitación se generan con un generador no criptográfico, no caducan y se pueden probar sin límite: `/api/invitaciones/{codigo}` responde 404 a los que no existen | Bloque IV |
 | `/api/misiones/{id}` no comprueba la propiedad de la misión | Bloque IV |
-| `/api/admin/usuarios` no comprueba el rol | sesión 2.5 · Bloque IV |
 
-Las dos últimas son referencias directas a la idea de que la autorización debe
+La última es una referencia directa a la idea de que la autorización debe
 comprobarse donde la operación se ejecuta, no donde se ofrece.
