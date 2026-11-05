@@ -59,7 +59,7 @@ La aplicación es **deliberadamente insegura** en el Bloque II: guarda el token 
 
 ## Compilar y ejecutar
 
-Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y [uv](https://docs.astral.sh/uv/) (o Python 3.10 con `pip install openrouter`) para el backend.
+Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y [uv](https://docs.astral.sh/uv/) (o Python 3.10 o posterior con `pip install openrouter`) para el backend.
 
 1. Poner la clave de OpenRouter en `backend/.env`, que está excluido del repositorio:
 

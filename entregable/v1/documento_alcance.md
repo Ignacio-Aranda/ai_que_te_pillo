@@ -14,23 +14,23 @@ La usarían grupos de amigos ya formados. Cada grupo tiene un código de invitac
 
 **Relación con el dominio asignado.** Al grupo L le correspondió *Enlace: mensajería local entre dispositivos*. La aplicación conserva lo que hace delicado ese dominio: conecta los dispositivos de personas que están juntas y hace circular entre ellos contenido sobre ellas. El permiso natural del dominio (contactos o proximidad) se sustituye por la cámara, que es la que exige la función principal; la proximidad queda como mejora opcional para comprobar que cazador y objetivo están cerca.
 
-**Estado al cierre del Bloque II.** Parte del proyecto base de la asignatura con el modelo adaptado a misiones: acceso contra el backend, listado y detalle con enlace profundo `aiquetepillo://mision/{id}`, copia local con Room, sesión en `SharedPreferences` y foto de la misión activa con CameraX, que pide el permiso de cámara al pulsar «HACER FOTO». Faltan los grupos, el selfie, la subida de fotos y la IA. Es insegura a propósito (datos en claro, registros en logcat y HTTP), y cada punto se corrige en el Bloque III.
+**Estado al cierre del Bloque II.** La aplicación parte del proyecto base de la asignatura y cubre el juego completo: registro con un selfie hecho con la cámara frontal, acceso contra el backend con la sesión guardada en `SharedPreferences`, grupos con código e invitación por enlace, misiones generadas por el modelo `anthropic/claude-haiku-5.5` a través de OpenRouter, foto de la misión con CameraX, verificación de la foto por el mismo modelo y clasificación por grupo. Sin clave del proveedor, el backend usa misiones de una lista fija y acepta todas las fotos. Es insegura a propósito (datos en claro, registros en logcat y HTTP), y cada punto se corrige en el Bloque III.
 
 ## 2. Datos que maneja
 
-Inventario iniciado en P2.2. Las filas marcadas *(previsto)* son datos del diseño que la aplicación aún no maneja, descritos tal como quedarían con el código de hoy. La última columna se completa en el Bloque III.
+Inventario iniciado en P2.2, con el estado del código al cierre del Bloque II. La última columna se completa en el Bloque III.
 
 | Dato | Dónde se guarda hoy | Quién puede leerlo hoy | Cómo se protegerá |
 |---|---|---|---|
 | Token de sesión | `shared_prefs/sesion.xml`, en claro. También en logcat (el `Log.d` de la respuesta de acceso y el interceptor de OkHttp) y en la cabecera de cada petición HTTP | Cualquiera con adb y la depuración activada; cualquiera en la misma red; la copia de seguridad en la nube. Además es predecible: Base64 de `usuario:hora` | Bloque III |
 | Contraseña | No se guarda en el móvil. Viaja en claro al iniciar sesión y queda en logcat. En el servidor está en claro | Quien lea logcat; cualquiera en la misma red; quien acceda al servidor | Bloque III |
-| Nombre de usuario | `sesion.xml` y la tabla `misiones` de Room, en claro | Cualquiera con adb y la depuración activada; la copia de seguridad | Bloque III |
+| Nombre de usuario y nombre visible | `sesion.xml` y la tabla `misiones` de Room, en claro | Cualquiera con adb y la depuración activada; la copia de seguridad | Bloque III |
 | Misiones (título, descripción, puntos, fecha) | `databases/aiquetepillo.db` con sus ficheros `-wal` y `-shm`, sin cifrar, y en logcat. Las descripciones nombran a personas reales | Cualquiera con adb y la depuración activada; la copia de seguridad; la red. El servidor entrega la misión de otro usuario a quien pida su número | Bloque III |
 | Perfil (nombre, correo, DNI, rol) | No se guarda en el móvil. En el servidor, en claro | Cualquier usuario con sesión puede listar los de todos: `/api/admin/usuarios` no comprueba el rol | Bloque III |
-| Selfie de registro *(previsto)* | Se subiría al servidor. Es un dato biométrico (art. 9 del RGPD) | Con el código actual: la red, el servidor y la caché local | Bloque III |
-| Fotos de las misiones | `cache/fotos/mision_<id>.jpg` en el directorio privado, sin cifrar; se borran al cerrar sesión. Aún no se suben: irían al servidor, que las enviaría al proveedor de IA | Cualquiera con adb y la depuración activada. Cuando se suban: la red, el servidor y un tercero, el proveedor de IA | Bloque III |
-| Contexto y código de invitación del grupo *(previsto)* | En el servidor y en la caché de Room. El código viaja también en el enlace de invitación | Con el código actual: adb, la red y quien reciba o adivine el enlace | Bloque III |
-| Clave del proveedor de IA *(previsto)* | Solo en el servidor, como variable de entorno. Nunca en el APK ni en el repositorio | Quien acceda al servidor. Si llegase al APK, cualquiera que lo decompile | Bloque III |
+| Selfie de registro | `cache/fotos/selfie.jpg`, sin cifrar, hasta que se sube con el registro; después se borra. Viaja en Base64 por HTTP y queda en logcat. En el servidor, en memoria y sin cifrar. Es un dato biométrico (art. 9 del RGPD) | Cualquiera con adb o en la misma red durante el registro; quien acceda al servidor; el proveedor de IA, que lo recibe en cada comprobación en la que su dueño es el objetivo | Bloque III |
+| Fotos de las misiones | `cache/fotos/mision_<id>.jpg`, sin cifrar; se borran al conseguir o saltar la misión y al cerrar sesión. Se envían en Base64 por HTTP y quedan en logcat. El servidor no las guarda: las reenvía al proveedor de IA | Cualquiera con adb y la depuración activada; la red; un tercero, el proveedor de IA | Bloque III |
+| Contexto y código de invitación del grupo | En el servidor, en memoria y en claro. En el móvil no se guardan, pero viajan por HTTP y quedan en logcat. El código va también en el texto de la invitación | Los miembros y quien reciba la invitación; adb y la red; quien adivine el código, porque la API no limita los intentos | Bloque III |
+| Clave del proveedor de IA | Solo en el servidor, en `backend/.env` (excluido del repositorio) o en una variable de entorno. Nunca en el APK | Quien acceda al servidor. Si llegase al APK, cualquiera que lo decompile | Bloque III |
 
 ## 3. Superficie expuesta
 
@@ -47,9 +47,9 @@ Inventario de la sección 5 de P2.3 sobre el paquete `es.uma.aiquetepillo`. En n
 | Copia de seguridad | Copia automática en la nube de Google | Nada: `allowBackup="true"` con reglas vacías | Sesión 3.3 · P3.1 |
 | Registros | `adb logcat` filtrando por `Repositorio` y `okhttp` | Nada: salen el usuario, la contraseña, el token y las respuestas | Sesión 3.6 |
 | Vista de recientes y capturas | Botón de recientes o captura de pantalla | Protegida con `FLAG_SECURE` | Sesión 3.6 |
-| Permiso de cámara | Botón «HACER FOTO» de la misión activa | Se pide en tiempo de ejecución y la app funciona si se deniega. Se usa para la foto de la misión con CameraX; la pantalla de cámara vuelve a comprobar el permiso y no tiene enlace profundo | Bloque III · Bloque IV |
-| Enlace `aiquetepillo://unirse/{codigo}` *(previsto)* | Enlace compartido con el selector de Android | Debe pedir confirmación antes de unir. Un código de 6 caracteres se puede probar por fuerza bruta | Sesión 3.4 · Bloque IV |
-| Subida de fotos al servidor y al proveedor de IA *(previsto)* | Desde la app, o con `curl` | Por diseñar: tamaño, tipo de fichero y que la misión sea del usuario | Sesión 3.5 · Bloque IV |
+| Permiso de cámara | Botones «HACER SELFIE» del registro y «HACER FOTO» de la misión | Se pide en tiempo de ejecución y la app funciona si se deniega. La cámara (frontal para el selfie, trasera para las misiones) va con CameraX, comprueba el permiso al abrirse y no tiene enlace profundo | Bloque III · Bloque IV |
+| Enlace `aiquetepillo://unirse/{codigo}` | `adb shell am start -a android.intent.action.VIEW -d "aiquetepillo://unirse/K7P2QX"`, o el texto que comparte «INVITAR» | Enseña el grupo y solo une al pulsar «UNIRSE», con el token guardado. El código se puede probar por fuerza bruta: sin límite de intentos y con un 404 para los que no existen | Sesión 3.4 · Bloque IV |
+| Subida de fotos y envío al proveedor de IA | «ENVIAR FOTO», o `curl` contra `POST /api/misiones/{id}/foto` | Que haya token, que la misión sea del usuario y que sea un JPEG. No limita el tamaño ni los intentos, y el modelo recibe el contexto del grupo y la foto, que pueden llevar instrucciones inyectadas | Sesión 3.5 · Bloque IV |
 
 ## 4. Modelo de amenazas preliminar
 
@@ -58,7 +58,7 @@ Quién atacaría la aplicación y qué buscaría: escenarios de partida para el 
 1. **Alguien que se cuela en un grupo.** Un conocido al que le reenvían el enlace de invitación, o alguien que prueba códigos al azar, entra en un grupo ajeno. Busca ver las fotos y los selfies de los miembros y saber dónde están y qué hacen. Si el código es corto y no caduca, le basta con probar o con recibir el enlace.
 2. **Alguien con el móvil en la mano o en la misma wifi.** Un amigo que coge el teléfono desbloqueado y lo conecta a su portátil, o cualquiera en la wifi compartida de la casa rural. Busca hacerse pasar por el dueño: jugar en su nombre o leer lo que guarda la aplicación. Hoy lo tiene fácil: la sesión, las misiones, las fotos y la contraseña quedan en claro en el móvil, en los registros y en la red.
 3. **Alguien que busca las fotos para difundirlas.** Las fotos de las misiones muestran a personas en situaciones que no querrían ver publicadas, y el selfie sirve para reconocer o suplantar una cara. Quien entre en el servidor, intercepte la subida o un proveedor de IA que conserve las imágenes podría usarlas para humillar, chantajear o suplantar, y desde el servidor se llevaría además la clave del proveedor para gastarla a costa del proyecto. Es el daño más grave, porque alcanza a personas que solo han salido en una foto.
-4. **Un jugador tramposo.** Un miembro que quiere ganar sin cumplir las misiones: sube una foto antigua, retocada o de alguien parecido para engañar a la IA, o le pide al servidor misiones que no son suyas. Busca puntos, y de paso ve las misiones y fotos de los demás: hoy el servidor entrega la misión de cualquier usuario a quien pida su número.
+4. **Un jugador tramposo.** Un miembro que quiere ganar sin cumplir las misiones: sube una foto antigua, retocada o de alguien parecido para engañar a la IA, escribe en la foto una orden para que el modelo la dé por buena, o le pide al servidor misiones que no son suyas. Busca puntos, y de paso ve las misiones de los demás: hoy el servidor entrega la misión de cualquier usuario a quien pida su número.
 
 ## 5. Reparto de trabajo
 

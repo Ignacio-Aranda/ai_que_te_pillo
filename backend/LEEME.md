@@ -1,8 +1,9 @@
 # Backend · AI que te pillo
 
-Parte del backend común de la asignatura, adaptado al dominio del juego: los
-elementos del proyecto base son ahora misiones (`/api/misiones`). API REST mínima para las prácticas del Bloque II. Sirve por **HTTP sin cifrar**
-de forma deliberada: en la práctica P3.2 se comparará este tráfico con el de la
+Parte del backend común de la asignatura, ampliado para el juego: registro con
+selfie, grupos con código de invitación, partidas con misiones generadas por IA,
+verificación de las fotos y clasificación. Los elementos del proyecto base son
+ahora misiones (`/api/misiones`). Sirve por **HTTP sin cifrar** de forma deliberada: en la práctica P3.2 se comparará este tráfico con el de la
 misma aplicación tras aplicar TLS y anclaje de certificados.
 
 ## Requisitos
@@ -68,6 +69,11 @@ el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
 | `luis` | `Practica2024` | usuario |
 | `admin` | `Administrador` | administrador |
 
+`ana` y `luis` comparten el grupo «Casa rural» (código `K7P2QX`), con la partida
+empezada y una misión cada uno. Las cuentas nuevas se crean desde la aplicación
+o con `POST /api/registro`. Todos los datos viven en memoria y se pierden al
+reiniciar el servidor.
+
 ## Endpoints
 
 | Método | Ruta | Autenticación | Descripción |
@@ -102,7 +108,7 @@ El servidor arranca en HTTP sin cifrar por defecto. Para la práctica P3.2 se
 pasa a HTTPS con un certificado autofirmado.
 
     ./generar_certificado.sh
-    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem python3 servidor.py
+    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem uv run servidor.py
 
 El script genera `cert.pem` y `clave.pem`, y muestra por pantalla el resumen
 SHA-256 de la clave pública, que es exactamente el valor que hace falta para
