@@ -47,6 +47,27 @@ interface ApiServicio {
 
     @GET("api/perfil")
     suspend fun perfil(@Header("Authorization") autorizacion: String): Perfil
+
+    @GET("api/grupos")
+    suspend fun grupos(@Header("Authorization") autorizacion: String): RespuestaGrupos
+
+    @POST("api/grupos")
+    suspend fun crearGrupo(
+        @Header("Authorization") autorizacion: String,
+        @Body peticion: PeticionGrupo
+    ): Grupo
+
+    @GET("api/invitaciones/{codigo}")
+    suspend fun invitacion(
+        @Header("Authorization") autorizacion: String,
+        @Path("codigo") codigo: String
+    ): Grupo
+
+    @POST("api/grupos/unirse")
+    suspend fun unirse(
+        @Header("Authorization") autorizacion: String,
+        @Body peticion: PeticionUnirse
+    ): Grupo
 }
 
 object ClienteRed {

@@ -33,6 +33,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="aiquetepillo" android:host="mision" />
+                <data android:scheme="aiquetepillo" android:host="unirse" />
             </intent-filter>
         </activity>
     </application>

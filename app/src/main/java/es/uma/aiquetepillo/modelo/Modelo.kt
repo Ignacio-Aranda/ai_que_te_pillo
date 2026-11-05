@@ -61,6 +61,47 @@ data class RespuestaMisiones(
     val misiones: List<Mision>
 )
 
+/** Un miembro de un grupo. */
+@Serializable
+data class Miembro(
+    val usuario: String = "",
+    val nombre: String = ""
+)
+
+/**
+ * Un grupo de juego, devuelto por /api/grupos y /api/invitaciones/{codigo}.
+ *
+ * `codigo` es la invitación: quien lo conoce puede unirse al grupo.
+ */
+@Serializable
+data class Grupo(
+    val id: Int = 0,
+    val nombre: String = "",
+    val contexto: String = "",
+    val codigo: String = "",
+    val creador: String = "",
+    val miembros: List<Miembro> = emptyList()
+)
+
+/** Envoltorio de la respuesta de GET /api/grupos */
+@Serializable
+data class RespuestaGrupos(
+    val grupos: List<Grupo>
+)
+
+/** Petición de POST /api/grupos */
+@Serializable
+data class PeticionGrupo(
+    val nombre: String,
+    val contexto: String
+)
+
+/** Petición de POST /api/grupos/unirse */
+@Serializable
+data class PeticionUnirse(
+    val codigo: String
+)
+
 /**
  * Datos personales devueltos por GET /api/perfil.
  *
@@ -112,5 +153,6 @@ sealed interface MotivoError {
     data object SinConexion : MotivoError
     data object CredencialesNoValidas : MotivoError
     data object SesionCaducada : MotivoError
+    data object CodigoNoValido : MotivoError
     data object Desconocido : MotivoError
 }

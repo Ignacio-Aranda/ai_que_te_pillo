@@ -78,11 +78,13 @@ fun PantallaLogin(
  * Traduce el motivo a un texto para el usuario.
  *
  * Fíjate en que el mensaje NO revela detalles internos: nada de direcciones de
- * servidor, rutas ni trazas. Es la idea de la sesión 2.4.5.
+ * servidor, rutas ni trazas. Es la idea de la sesión 2.4.5. Las pantallas de
+ * grupos usan también esta función.
  */
-private fun textoDeError(motivo: MotivoError): String = when (motivo) {
+fun textoDeError(motivo: MotivoError): String = when (motivo) {
     MotivoError.SinConexion -> "No se ha podido conectar. Inténtalo de nuevo."
     MotivoError.CredencialesNoValidas -> "Usuario o contraseña incorrectos."
     MotivoError.SesionCaducada -> "La sesión ha caducado. Vuelve a entrar."
+    MotivoError.CodigoNoValido -> "Ese código de invitación no existe."
     MotivoError.Desconocido -> "Ha ocurrido un error. Inténtalo de nuevo."
 }

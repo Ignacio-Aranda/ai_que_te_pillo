@@ -163,6 +163,43 @@ class Repositorio(
             }
         }
 
+    /** Los grupos del usuario. Sin copia local: sin red no se muestran. */
+    suspend fun obtenerGrupos(): EstadoUi<List<Grupo>> =
+        conToken { token -> api.grupos(token).grupos }
+
+    suspend fun crearGrupo(nombre: String, contexto: String): EstadoUi<Grupo> =
+        conToken { token -> api.crearGrupo(token, PeticionGrupo(nombre, contexto)) }
+
+    /** El grupo al que lleva un código, para confirmar antes de unirse. */
+    suspend fun verInvitacion(codigo: String): EstadoUi<Grupo> =
+        conToken { token -> api.invitacion(token, codigo.trim().uppercase()) }
+
+    suspend fun unirse(codigo: String): EstadoUi<Grupo> =
+        conToken { token -> api.unirse(token, PeticionUnirse(codigo.trim().uppercase())) }
+
+    /**
+     * Ejecuta una llamada autenticada y traduce el resultado a un EstadoUi.
+     * Un 404 en los grupos significa que el código de invitación no existe.
+     */
+    private suspend fun <T> conToken(llamada: suspend (String) -> T): EstadoUi<T> =
+        withContext(Dispatchers.IO) {
+            val token = sesion.obtenerToken()
+                ?: return@withContext EstadoUi.Error(MotivoError.SesionCaducada)
+            try {
+                EstadoUi.Exito(llamada("Bearer $token"))
+            } catch (e: HttpException) {
+                when (e.code()) {
+                    401 -> EstadoUi.Error(MotivoError.SesionCaducada)
+                    404 -> EstadoUi.Error(MotivoError.CodigoNoValido)
+                    else -> EstadoUi.Error(MotivoError.Desconocido)
+                }
+            } catch (e: IOException) {
+                EstadoUi.Error(MotivoError.SinConexion)
+            } catch (e: Exception) {
+                EstadoUi.Error(MotivoError.Desconocido)
+            }
+        }
+
     /**
      * Cierra la sesión.
      *

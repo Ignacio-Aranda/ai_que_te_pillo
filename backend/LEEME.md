@@ -65,6 +65,10 @@ el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
 | GET | `/api/misiones/{id}` | Bearer | Devuelve una misión por su identificador |
 | GET | `/api/perfil` | Bearer | Datos personales del usuario autenticado |
 | GET | `/api/admin/usuarios` | Bearer | Listado de todas las cuentas |
+| GET | `/api/grupos` | Bearer | Lista los grupos del usuario autenticado, con sus miembros |
+| POST | `/api/grupos` | Bearer | Crea un grupo a partir de `{nombre, contexto}`; el creador entra como miembro y se genera un código de invitación |
+| GET | `/api/invitaciones/{codigo}` | Bearer | Vista previa del grupo de un código, para confirmar antes de unirse |
+| POST | `/api/grupos/unirse` | Bearer | Une al usuario autenticado al grupo de `{codigo}` |
 
 Ejemplo:
 
@@ -119,6 +123,7 @@ localizar. **No debe usarse fuera del aula.**
 | Sin límite de intentos de autenticación | Bloque IV |
 | El error distingue «usuario inexistente» de «contraseña incorrecta» | sesión 2.4 · Bloque IV |
 | El certificado del modo TLS es autofirmado | Aceptable en el laboratorio, nunca en producción |
+| Los códigos de invitación se generan con un generador no criptográfico, no caducan y se pueden probar sin límite: `/api/invitaciones/{codigo}` responde 404 a los que no existen | Bloque IV |
 | `/api/misiones/{id}` no comprueba la propiedad de la misión | Bloque IV |
 | `/api/admin/usuarios` no comprueba el rol | sesión 2.5 · Bloque IV |
 

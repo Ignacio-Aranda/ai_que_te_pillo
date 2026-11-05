@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,24 +26,31 @@ import es.uma.aiquetepillo.ui.juego.*
 import es.uma.aiquetepillo.ui.theme.*
 
 /**
- * Pantalla principal: la misión activa del jugador, el resto de sus misiones y
- * la barra de pestañas. Las pestañas de grupo y clasificación todavía no
- * tienen contenido.
+ * Pantalla principal: la misión activa del jugador, el resto de sus misiones,
+ * sus grupos y la barra de pestañas. La pestaña de clasificación todavía no
+ * tiene contenido.
  */
 @Composable
 fun PantallaLista(
     nombre: String,
     estado: EstadoUi<List<Mision>>,
     fotos: Map<Int, FotoMision>,
+    grupos: EstadoUi<List<Grupo>>,
     onRecargar: () -> Unit,
+    onRecargarGrupos: () -> Unit,
     onSalir: () -> Unit,
     onAbrir: (Int) -> Unit,
-    onHacerFoto: (Int) -> Unit
+    onHacerFoto: (Int) -> Unit,
+    onCrearGrupo: () -> Unit,
+    onUnirse: () -> Unit,
+    onAbrirGrupo: (Int) -> Unit
 ) {
-    var pestana by remember { mutableStateOf(Pestana.MISIONES) }
+    // rememberSaveable: al volver de un grupo se sigue en la pestaña de grupo
+    var pestana by rememberSaveable { mutableStateOf(Pestana.MISIONES) }
 
     // Al entrar se cargan las misiones sin esperar a que el jugador lo pida
     LaunchedEffect(Unit) { if (estado is EstadoUi.Reposo) onRecargar() }
+    LaunchedEffect(pestana) { if (pestana == Pestana.GRUPO && grupos is EstadoUi.Reposo) onRecargarGrupos() }
 
     val misiones = (estado as? EstadoUi.Exito)?.datos.orEmpty()
 
@@ -51,7 +59,7 @@ fun PantallaLista(
             BarraSuperior(
                 misiones = misiones.size,
                 puntosEnJuego = misiones.sumOf { it.puntos },
-                onRecargar = onRecargar,
+                onRecargar = if (pestana == Pestana.GRUPO) onRecargarGrupos else onRecargar,
                 onSalir = onSalir
             )
             TarjetaJugador(nombre, Modifier.padding(horizontal = 16.dp))
@@ -60,7 +68,7 @@ fun PantallaLista(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (pestana) {
                     Pestana.MISIONES -> ContenidoMisiones(estado, fotos, onRecargar, onAbrir, onHacerFoto)
-                    Pestana.GRUPO -> Proximamente("👥", "Aquí verás tu grupo, sus miembros y el código de invitación.")
+                    Pestana.GRUPO -> ContenidoGrupos(grupos, onRecargarGrupos, onCrearGrupo, onUnirse, onAbrirGrupo)
                     Pestana.RANKING -> Proximamente("🏆", "Aquí verás la clasificación del grupo por puntos.")
                 }
             }

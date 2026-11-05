@@ -129,7 +129,7 @@ fun PantallaDetalle(
  * direcciones de servidor, ni rutas, ni trazas de excepciones (sesión 2.4.5).
  *
  * PARA EL CUADERNO: cuando en el paso 4 abras esta pantalla sin haber iniciado
- * sesión, aquí aparecerá uno de estos cuatro mensajes. Anota CUÁL, porque te
+ * sesión, aquí aparecerá uno de estos mensajes. Anota CUÁL, porque te
  * dice exactamente qué capa de la aplicación te ha detenido, y esa es la
  * pregunta central de la práctica de hoy.
  */
@@ -137,5 +137,6 @@ private fun mensajeDeError(motivo: MotivoError): String = when (motivo) {
     MotivoError.SinConexion -> "No se ha podido conectar. Inténtalo de nuevo."
     MotivoError.CredencialesNoValidas -> "Usuario o contraseña incorrectos."
     MotivoError.SesionCaducada -> "La sesión ha caducado. Vuelve a entrar."
+    MotivoError.CodigoNoValido -> "Ese código de invitación no existe."
     MotivoError.Desconocido -> "Ha ocurrido un error. Inténtalo de nuevo."
 }

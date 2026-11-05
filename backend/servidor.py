@@ -21,6 +21,7 @@ estudio para los Bloques III y IV. No debe usarse fuera del aula.
 import base64
 import json
 import os
+import random
 import re
 import ssl
 import threading
@@ -52,6 +53,13 @@ MISIONES = {
     "admin": [],
 }
 
+# Grupos de juego. Los miembros se guardan por nombre de usuario.
+GRUPOS = {
+    1: {"id": 1, "nombre": "Casa rural", "contexto": "Fin de semana en una casa rural en la sierra.",
+        "codigo": "K7P2QX", "creador": "ana", "miembros": ["ana", "luis"]},
+}
+_siguiente_grupo = 2
+
 SESIONES = {}  # token -> usuario
 
 
@@ -59,6 +67,29 @@ def crear_token(usuario):
     """Token deliberadamente predecible: material de análisis para el Bloque IV."""
     crudo = "%s:%d" % (usuario, int(time.time()))
     return base64.b64encode(crudo.encode()).decode()
+
+
+def crear_codigo():
+    """Código de invitación de 6 caracteres. Generador no criptográfico, sin
+    caducidad y sin límite de intentos al unirse: escenario del modelo de amenazas."""
+    while True:
+        codigo = "".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=6))
+        if all(g["codigo"] != codigo for g in GRUPOS.values()):
+            return codigo
+
+
+def grupo_publico(grupo):
+    """El grupo tal como lo ve la aplicación: los miembros con su nombre."""
+    return {
+        "id": grupo["id"], "nombre": grupo["nombre"], "contexto": grupo["contexto"],
+        "codigo": grupo["codigo"], "creador": grupo["creador"],
+        "miembros": [{"usuario": u, "nombre": USUARIOS[u]["nombre"]} for u in grupo["miembros"]],
+    }
+
+
+def grupo_por_codigo(codigo):
+    codigo = (codigo or "").strip().upper()
+    return next((g for g in GRUPOS.values() if g["codigo"] == codigo), None)
 
 
 class Manejador(BaseHTTPRequestHandler):
@@ -125,6 +156,27 @@ class Manejador(BaseHTTPRequestHandler):
                 for k, v in USUARIOS.items()
             ]})
 
+        if ruta == "/api/grupos":
+            usuario = self._usuario_autenticado()
+            if usuario is None:
+                return self._responder(401, {"error": "Token ausente o no válido"})
+            return self._responder(200, {"grupos": [
+                grupo_publico(g) for g in GRUPOS.values() if usuario in g["miembros"]
+            ]})
+
+        # Vista previa de una invitación, para la pantalla de confirmación.
+        # Responde 404 a los códigos que no existen: sirve de oráculo para
+        # probar códigos al azar (Bloque IV).
+        m = re.match(r"^/api/invitaciones/([A-Za-z0-9]+)$", ruta)
+        if m:
+            usuario = self._usuario_autenticado()
+            if usuario is None:
+                return self._responder(401, {"error": "Token ausente o no válido"})
+            grupo = grupo_por_codigo(m.group(1))
+            if grupo is None:
+                return self._responder(404, {"error": "Código no válido"})
+            return self._responder(200, grupo_publico(grupo))
+
         m = re.match(r"^/api/misiones/(\d+)$", ruta)
         if m:
             usuario = self._usuario_autenticado()
@@ -177,6 +229,36 @@ class Manejador(BaseHTTPRequestHandler):
                 _siguiente_id += 1
             MISIONES.setdefault(usuario, []).append(nuevo)
             return self._responder(201, nuevo)
+
+        if ruta == "/api/grupos":
+            usuario = self._usuario_autenticado()
+            if usuario is None:
+                return self._responder(401, {"error": "Token ausente o no válido"})
+            nombre = (cuerpo.get("nombre") or "").strip()
+            if not nombre:
+                return self._responder(400, {"error": "Falta el nombre del grupo"})
+            global _siguiente_grupo
+            with _lock:
+                grupo = {
+                    "id": _siguiente_grupo, "nombre": nombre,
+                    "contexto": (cuerpo.get("contexto") or "").strip(),
+                    "codigo": crear_codigo(), "creador": usuario, "miembros": [usuario],
+                }
+                GRUPOS[grupo["id"]] = grupo
+                _siguiente_grupo += 1
+            return self._responder(201, grupo_publico(grupo))
+
+        if ruta == "/api/grupos/unirse":
+            usuario = self._usuario_autenticado()
+            if usuario is None:
+                return self._responder(401, {"error": "Token ausente o no válido"})
+            grupo = grupo_por_codigo(cuerpo.get("codigo"))
+            if grupo is None:
+                return self._responder(404, {"error": "Código no válido"})
+            with _lock:
+                if usuario not in grupo["miembros"]:
+                    grupo["miembros"].append(usuario)
+            return self._responder(200, grupo_publico(grupo))
 
         return self._responder(404, {"error": "Ruta no encontrada", "ruta": ruta})
 

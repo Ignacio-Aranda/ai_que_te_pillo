@@ -32,6 +32,17 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     private val _estadoDetalle = MutableStateFlow<EstadoUi<Mision>>(EstadoUi.Reposo)
     val estadoDetalle: StateFlow<EstadoUi<Mision>> = _estadoDetalle.asStateFlow()
 
+    private val _estadoGrupos = MutableStateFlow<EstadoUi<List<Grupo>>>(EstadoUi.Reposo)
+    val estadoGrupos: StateFlow<EstadoUi<List<Grupo>>> = _estadoGrupos.asStateFlow()
+
+    /** Vista previa del grupo de un código de invitación. */
+    private val _estadoInvitacion = MutableStateFlow<EstadoUi<Grupo>>(EstadoUi.Reposo)
+    val estadoInvitacion: StateFlow<EstadoUi<Grupo>> = _estadoInvitacion.asStateFlow()
+
+    /** Resultado de crear un grupo o de unirse a uno. */
+    private val _estadoAltaGrupo = MutableStateFlow<EstadoUi<Grupo>>(EstadoUi.Reposo)
+    val estadoAltaGrupo: StateFlow<EstadoUi<Grupo>> = _estadoAltaGrupo.asStateFlow()
+
     /** Fotos hechas, por misión. Se cargan del disco al arrancar. */
     private val _fotos = MutableStateFlow(
         repositorio.fotosGuardadas().mapValues { (_, fichero) -> FotoMision(fichero, fichero.lastModified()) }
@@ -67,6 +78,44 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
         }
     }
 
+    fun cargarGrupos() {
+        viewModelScope.launch {
+            _estadoGrupos.value = EstadoUi.Cargando
+            _estadoGrupos.value = repositorio.obtenerGrupos()
+        }
+    }
+
+    fun crearGrupo(nombre: String, contexto: String) {
+        darDeAlta { repositorio.crearGrupo(nombre, contexto) }
+    }
+
+    fun verInvitacion(codigo: String) {
+        viewModelScope.launch {
+            _estadoInvitacion.value = EstadoUi.Cargando
+            _estadoInvitacion.value = repositorio.verInvitacion(codigo)
+        }
+    }
+
+    fun unirse(codigo: String) {
+        darDeAlta { repositorio.unirse(codigo) }
+    }
+
+    /** Limpia el resultado anterior antes de abrir los formularios de grupo. */
+    fun olvidarAltaGrupo() {
+        _estadoInvitacion.value = EstadoUi.Reposo
+        _estadoAltaGrupo.value = EstadoUi.Reposo
+    }
+
+    /** Crea o une y, si sale bien, vuelve a pedir la lista de grupos. */
+    private fun darDeAlta(operacion: suspend () -> EstadoUi<Grupo>) {
+        viewModelScope.launch {
+            _estadoAltaGrupo.value = EstadoUi.Cargando
+            val resultado = operacion()
+            _estadoAltaGrupo.value = resultado
+            if (resultado is EstadoUi.Exito) cargarGrupos()
+        }
+    }
+
     /**
      * Cierre de sesión.
      *
@@ -83,6 +132,8 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
         _estadoLogin.value = EstadoUi.Reposo
         _estadoLista.value = EstadoUi.Reposo
         _estadoDetalle.value = EstadoUi.Reposo
+        _estadoGrupos.value = EstadoUi.Reposo
+        olvidarAltaGrupo()
         _fotos.value = emptyMap()
         viewModelScope.launch {
             repositorio.cerrarSesion()

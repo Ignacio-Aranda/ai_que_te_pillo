@@ -10,8 +10,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import androidx.navigation.NavController
 import es.uma.aiquetepillo.VistaModelo
 import es.uma.aiquetepillo.modelo.EstadoUi
+import es.uma.aiquetepillo.modelo.Grupo
 
 /**
  * Navegación entre pantallas. ESTÁ TERMINADA: no hace falta tocarla en P2.2.
@@ -26,6 +28,9 @@ fun Navegacion(vistaModelo: VistaModelo) {
     val estadoLista by vistaModelo.estadoLista.collectAsState()
     val estadoDetalle by vistaModelo.estadoDetalle.collectAsState()
     val fotos by vistaModelo.fotos.collectAsState()
+    val estadoGrupos by vistaModelo.estadoGrupos.collectAsState()
+    val estadoInvitacion by vistaModelo.estadoInvitacion.collectAsState()
+    val estadoAltaGrupo by vistaModelo.estadoAltaGrupo.collectAsState()
 
     NavHost(navController = navController, startDestination = "login") {
 
@@ -50,7 +55,9 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 nombre = (estadoLogin as? EstadoUi.Exito)?.datos?.nombre.orEmpty(),
                 estado = estadoLista,
                 fotos = fotos,
+                grupos = estadoGrupos,
                 onRecargar = { vistaModelo.cargarMisiones() },
+                onRecargarGrupos = { vistaModelo.cargarGrupos() },
                 onSalir = {
                     vistaModelo.salir()
                     navController.navigate("login") {
@@ -58,8 +65,60 @@ fun Navegacion(vistaModelo: VistaModelo) {
                     }
                 },
                 onAbrir = { identificador -> navController.navigate("mision/$identificador") },
-                onHacerFoto = { identificador -> navController.navigate("camara/$identificador") }
+                onHacerFoto = { identificador -> navController.navigate("camara/$identificador") },
+                onCrearGrupo = {
+                    vistaModelo.olvidarAltaGrupo()
+                    navController.navigate("nuevo-grupo")
+                },
+                onUnirse = {
+                    vistaModelo.olvidarAltaGrupo()
+                    navController.navigate("unirse")
+                },
+                onAbrirGrupo = { identificador -> navController.navigate("grupo/$identificador") }
             )
+        }
+
+        composable(
+            route = "grupo/{id}",
+            arguments = listOf(navArgument("id") { type = NavType.IntType })
+        ) { entrada ->
+            val id = entrada.arguments?.getInt("id") ?: 0
+            LaunchedEffect(Unit) { if (estadoGrupos is EstadoUi.Reposo) vistaModelo.cargarGrupos() }
+            PantallaGrupo(
+                grupo = (estadoGrupos as? EstadoUi.Exito)?.datos?.find { it.id == id },
+                cargando = estadoGrupos is EstadoUi.Reposo || estadoGrupos is EstadoUi.Cargando,
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
+        composable("nuevo-grupo") {
+            PantallaCrearGrupo(
+                estado = estadoAltaGrupo,
+                onCrear = { nombre, contexto -> vistaModelo.crearGrupo(nombre, contexto) },
+                onVolver = { navController.popBackStack() }
+            )
+            AbrirGrupoAlTerminar(estadoAltaGrupo, "nuevo-grupo", navController, vistaModelo)
+        }
+
+        /*
+         * Destino del enlace de invitación. El enlace solo rellena el código:
+         * la pantalla enseña el grupo y no une a nadie hasta que se pulsa UNIRSE.
+         */
+        composable(
+            route = "unirse?codigo={codigo}",
+            arguments = listOf(navArgument("codigo") { type = NavType.StringType; defaultValue = "" }),
+            deepLinks = listOf(navDeepLink { uriPattern = "aiquetepillo://unirse/{codigo}" })
+        ) { entrada ->
+            PantallaUnirse(
+                codigoInicial = entrada.arguments?.getString("codigo").orEmpty(),
+                usuario = (estadoLogin as? EstadoUi.Exito)?.datos?.usuario,
+                invitacion = estadoInvitacion,
+                union = estadoAltaGrupo,
+                onBuscar = { vistaModelo.verInvitacion(it) },
+                onUnirse = { vistaModelo.unirse(it) },
+                onVolver = { navController.popBackStack() }
+            )
+            AbrirGrupoAlTerminar(estadoAltaGrupo, "unirse?codigo={codigo}", navController, vistaModelo)
         }
 
         // Sin enlace profundo: la cámara solo se abre desde la propia aplicación
@@ -90,6 +149,24 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 onCargar = { vistaModelo.cargarDetalle(it) },
                 onVolver = { navController.popBackStack() }
             )
+        }
+    }
+}
+
+/** Cuando se ha creado un grupo o se ha entrado en él, sustituye el formulario por el grupo. */
+@Composable
+private fun AbrirGrupoAlTerminar(
+    estado: EstadoUi<Grupo>,
+    rutaFormulario: String,
+    navController: NavController,
+    vistaModelo: VistaModelo
+) {
+    LaunchedEffect(estado) {
+        if (estado is EstadoUi.Exito) {
+            navController.navigate("grupo/${estado.datos.id}") {
+                popUpTo(rutaFormulario) { inclusive = true }
+            }
+            vistaModelo.olvidarAltaGrupo()
         }
     }
 }
