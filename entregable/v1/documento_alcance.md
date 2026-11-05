@@ -12,7 +12,7 @@ Versión 1, borrador del equipo · 5 de noviembre de 2026
 
 La usarían grupos de amigos ya formados. Cada grupo tiene un código de invitación de seis caracteres; para unirse hay que escribirlo o abrir el enlace `aiquetepillo://unirse/{codigo}` que comparte otro miembro. El dato más sensible son las fotos de personas: el selfie de registro es un dato biométrico, categoría especial según el RGPD, y las fotos de las misiones pueden mostrar a amigos en situaciones comprometidas. Unas y otras se suben al servidor y se envían a un proveedor de IA externo.
 
-**Relación con el dominio asignado.** Al grupo L le correspondió *Enlace: mensajería local entre dispositivos*. La aplicación conserva lo que hace delicado ese dominio: conecta los dispositivos de personas que están físicamente juntas y hace circular entre ellos contenido sobre esas personas. El permiso peligroso natural del dominio, contactos o proximidad, se sustituye por la cámara, que es la que exige la función principal; la proximidad queda como mejora opcional para comprobar que cazador y objetivo están cerca antes de validar una foto.
+**Relación con el dominio asignado.** Al grupo L le correspondió *Enlace: mensajería local entre dispositivos*. La aplicación conserva lo que hace delicado ese dominio: conecta los dispositivos de personas que están juntas y hace circular entre ellos contenido sobre ellas. El permiso natural del dominio (contactos o proximidad) se sustituye por la cámara, que es la que exige la función principal; la proximidad queda como mejora opcional para comprobar que cazador y objetivo están cerca.
 
 **Estado al cierre del Bloque II.** Parte del proyecto base de la asignatura con el modelo adaptado a misiones: acceso contra el backend, listado y detalle con enlace profundo `aiquetepillo://mision/{id}`, copia local con Room, sesión en `SharedPreferences` y foto de la misión activa con CameraX, que pide el permiso de cámara al pulsar «HACER FOTO». Faltan los grupos, el selfie, la subida de fotos y la IA. Es insegura a propósito (datos en claro, registros en logcat y HTTP), y cada punto se corrige en el Bloque III.
 
@@ -34,11 +34,12 @@ Inventario iniciado en P2.2. Las filas marcadas *(previsto)* son datos del dise�
 
 ## 3. Superficie expuesta
 
-Inventario de la sección 5 de P2.3 sobre el paquete `es.uma.aiquetepillo`. Solo `MainActivity` está exportada; el resto de vías pasan por el almacenamiento, la red o el servidor.
+Inventario de la sección 5 de P2.3 sobre el paquete `es.uma.aiquetepillo`. En nuestro manifiesto solo declaramos exportada `MainActivity`, pero el APK de depuración exporta además dos actividades que añaden las bibliotecas de Compose y un receptor de AndroidX protegido con `DUMP`, que solo pueden usar el sistema y `adb`.
 
 | Vía de entrada | Cómo se invoca hoy | Qué comprueba hoy | Se trata en |
 |---|---|---|---|
 | Activity principal exportada | `adb shell am start -n es.uma.aiquetepillo/.MainActivity`, o un `Intent` desde otra app | Nada | Sesión 3.4 |
+| Actividades de Compose exportadas (solo en depuración) | `adb shell am start -n es.uma.aiquetepillo/androidx.compose.ui.tooling.PreviewActivity`, o igual con `androidx.activity.ComponentActivity` | Nada: `ui-tooling` y `ui-test-manifest` las exportan sin permiso. `PreviewActivity` dibuja el *composable* que se le indique, sin pasar por la navegación | Sesión 3.4 |
 | Enlace profundo `aiquetepillo://mision/{id}` | `adb shell am start -a android.intent.action.VIEW -d "aiquetepillo://mision/3" es.uma.aiquetepillo`, o un enlace en un mensaje o una web | Nada en la interfaz: se salta el acceso y solo exige que el id sea un número. Con un token guardado muestra también misiones ajenas | Sesión 3.4 |
 | Llamadas a la API | `curl` con un token válido | Solo la presencia del token. No comprueba de quién es la misión ni el rol de administrador, y el acceso revela si un usuario existe | Sesión 3.5 · P3.2 (canal) · Bloque IV (autorización) |
 | Canal de red | Cualquiera en la misma red o con un proxy | Nada: HTTP en claro, permitido por `usesCleartextTraffic` | Sesión 3.5 · P3.2 |
@@ -52,7 +53,7 @@ Inventario de la sección 5 de P2.3 sobre el paquete `es.uma.aiquetepillo`. Solo
 
 ## 4. Modelo de amenazas preliminar
 
-Quién querría atacar la aplicación y qué buscaría. Son escenarios de partida que en el Bloque III se convertirán en el modelo de amenazas del documento de diseño de seguridad.
+Quién atacaría la aplicación y qué buscaría: escenarios de partida para el modelo de amenazas del Bloque III.
 
 1. **Alguien que se cuela en un grupo.** Un conocido al que le reenvían el enlace de invitación, o alguien que prueba códigos al azar, entra en un grupo ajeno. Busca ver las fotos y los selfies de los miembros y saber dónde están y qué hacen. Si el código es corto y no caduca, le basta con probar o con recibir el enlace.
 2. **Alguien con el móvil en la mano o en la misma wifi.** Un amigo que coge el teléfono desbloqueado y lo conecta a su portátil, o cualquiera en la wifi compartida de la casa rural. Busca hacerse pasar por el dueño: jugar en su nombre o leer lo que guarda la aplicación. Hoy lo tiene fácil: la sesión, las misiones, las fotos y la contraseña quedan en claro en el móvil, en los registros y en la red.
@@ -61,11 +62,11 @@ Quién querría atacar la aplicación y qué buscaría. Son escenarios de partid
 
 ## 5. Reparto de trabajo
 
-Cada miembro responde de un requisito técnico mínimo de principio a fin: lo construye en el Bloque II, lo protege en el Bloque III y lo defiende en la auditoría del Bloque IV. La API remota es el bloque más grande (todo el backend más el proveedor de IA), así que su responsable no lleva tareas extra; los demás suman una tarea de tamaño parecido.
+Cada miembro responde de un requisito de principio a fin: lo construye (Bloque II), lo protege (Bloque III) y lo defiende en la auditoría (Bloque IV). La API remota es lo más grande, así que su responsable no lleva tareas extra.
 
 | Miembro | Requisito técnico mínimo | Además | Lo protege en |
 |---|---|---|---|
 | José Ignacio Aranda Gómez-Guillamón | Llamada a una API remota: backend de grupos, misiones y clasificación; generación y verificación con el proveedor de IA | — | P3.2 (TLS y anclaje de certificados) |
 | Jorge Varea Durán | Autenticación de usuarios: registro e inicio de sesión en app y backend, gestión del token y cierre de sesión | Coordinar este documento | Sesión 3.5 · Bloque IV (tokens y autorización) |
 | Alejandro Galán Rita | Almacenamiento local de datos sensibles: sesión, caché de Room de grupos y misiones, borrado al cerrar sesión | Pantalla de clasificación | P3.1 (cifrado en reposo) |
-| Gonzalo Ramos Tarifa | Permiso peligroso justificado: cámara con CameraX para el selfie de registro y las fotos de las misiones | Enlace `aiquetepillo://unirse/{codigo}` y su pantalla de confirmación | P3.3 (componentes, permisos y fugas) |
+| Gonzalo Ramos Tarifa | Permiso peligroso justificado: cámara con CameraX para el selfie de registro y las fotos de las misiones | Enlace de invitación y su pantalla de confirmación | P3.3 (componentes, permisos y fugas) |

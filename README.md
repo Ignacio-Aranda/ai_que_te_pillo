@@ -116,9 +116,14 @@ Estado del Bloque II. Las filas marcadas *(previsto)* son datos que la aplicaci�
 
 ## Inventario de la superficie expuesta (P2.3, sección 5)
 
+En nuestro manifiesto solo declaramos exportada `MainActivity`, pero el manifiesto fusionado de la variante de depuración exporta cuatro componentes: `MainActivity`, dos actividades que añaden las bibliotecas de Compose y un receptor de AndroidX. Las dos actividades vienen de dependencias `debugImplementation` y desaparecen en la variante de publicación, pero el APK de depuración es el que se instala con `adb` y el que se audita en el Bloque IV. Se comprueba con `aapt2 dump xmltree --file AndroidManifest.xml app-debug.apk` o con `adb shell dumpsys package es.uma.aiquetepillo`.
+
 | Vía de entrada | Cómo se invoca hoy | Qué comprueba hoy | Se trata en |
 |---|---|---|---|
-| `MainActivity` exportada (es la única) | `adb shell am start -n es.uma.aiquetepillo/.MainActivity`, o cualquier aplicación con un `Intent` explícito | Nada | Sesión 3.4 |
+| `MainActivity` exportada | `adb shell am start -n es.uma.aiquetepillo/.MainActivity`, o cualquier aplicación con un `Intent` explícito | Nada | Sesión 3.4 |
+| `androidx.compose.ui.tooling.PreviewActivity` exportada (solo en depuración) | `adb shell am start -n es.uma.aiquetepillo/androidx.compose.ui.tooling.PreviewActivity`, o cualquier aplicación con un `Intent` explícito | Nada: está exportada sin permiso. La añade `ui-tooling` y dibuja el *composable* cuyo nombre recibe en el `Intent`, sin pasar por la navegación de la app | Sesión 3.4 |
+| `androidx.activity.ComponentActivity` exportada (solo en depuración) | `adb shell am start -n es.uma.aiquetepillo/androidx.activity.ComponentActivity`, o cualquier aplicación con un `Intent` explícito | Nada: está exportada sin permiso. La añade `ui-test-manifest` para las pruebas de Compose y abre una actividad vacía | Sesión 3.4 |
+| `androidx.profileinstaller.ProfileInstallReceiver` exportado (depuración y publicación) | Un *broadcast* dirigido al receptor | Exige `android.permission.DUMP`, que solo tienen el sistema y `adb shell`; ninguna otra aplicación puede invocarlo | Sesión 3.4 |
 | Enlace profundo `aiquetepillo://mision/{id}` | `adb shell am start -a android.intent.action.VIEW -d "aiquetepillo://mision/3" es.uma.aiquetepillo`, o un enlace en un mensaje, una web u otra app | Nada en la interfaz: abre el detalle sin pasar por la pantalla de acceso, y solo exige que el id sea un entero. Si queda un token guardado, carga la misión de ese id aunque sea de otro usuario | Sesión 3.4 |
 | Llamadas a la API | `curl` con un token válido, por ejemplo `curl -H "Authorization: Bearer <token>" http://localhost:8080/api/misiones/3` | Solo la presencia del token, que además es predecible. No comprueba de quién es la misión (`/api/misiones/{id}`) ni el rol (`/api/admin/usuarios`), y el inicio de sesión dice si el usuario existe | Sesión 3.5 · P3.2 (el canal) · Bloque IV (la autorización) |
 | Canal de red | Cualquiera en la misma red o con un proxy entre el móvil y el backend | Nada: HTTP en claro, permitido por `usesCleartextTraffic="true"` | Sesión 3.5 · P3.2 |
