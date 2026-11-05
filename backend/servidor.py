@@ -116,12 +116,14 @@ def crear_codigo():
 
 
 def grupo_publico(grupo):
-    """El grupo tal como lo ve la aplicación: los miembros con su nombre y sus puntos."""
+    """El grupo tal como lo ve la aplicación: los miembros con su nombre, sus puntos
+    y si tienen selfie (las cuentas de ejemplo empiezan sin él)."""
     return {
         "id": grupo["id"], "nombre": grupo["nombre"], "contexto": grupo["contexto"],
         "codigo": grupo["codigo"], "creador": grupo["creador"], "empezada": grupo["empezada"],
         "miembros": [
-            {"usuario": u, "nombre": USUARIOS[u]["nombre"], "puntos": PUNTOS.get((grupo["id"], u), 0)}
+            {"usuario": u, "nombre": USUARIOS[u]["nombre"], "puntos": PUNTOS.get((grupo["id"], u), 0),
+             "selfie": u in SELFIES}
             for u in grupo["miembros"]
         ],
     }
@@ -445,6 +447,20 @@ class Manejador(BaseHTTPRequestHandler):
                 "nombre": USUARIOS[usuario]["nombre"],
                 "rol": USUARIOS[usuario]["rol"]
             })
+
+        if ruta == "/api/selfie":
+            usuario = self._usuario_autenticado()
+            if usuario is None:
+                return self._responder(401, {"error": "Token ausente o no válido"})
+            selfie = jpeg_de_base64(cuerpo.get("selfie"))
+            if selfie is None:
+                return self._responder(400, {"error": "El selfie no es un JPEG"})
+            with _lock:
+                # Solo para quien no tiene: el selfie no se puede cambiar después
+                if usuario in SELFIES:
+                    return self._responder(409, {"error": "Ya tienes selfie"})
+                SELFIES[usuario] = selfie
+            return self._responder(201, {"selfie": True})
 
         if ruta == "/api/misiones":
             usuario = self._usuario_autenticado()

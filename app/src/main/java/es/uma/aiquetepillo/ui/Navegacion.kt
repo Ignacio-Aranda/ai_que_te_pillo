@@ -34,6 +34,7 @@ fun Navegacion(vistaModelo: VistaModelo) {
     val estadoAltaGrupo by vistaModelo.estadoAltaGrupo.collectAsState()
     val estadoRegistro by vistaModelo.estadoRegistro.collectAsState()
     val selfie by vistaModelo.selfie.collectAsState()
+    val estadoSelfie by vistaModelo.estadoSelfie.collectAsState()
     val estadoPartida by vistaModelo.estadoPartida.collectAsState()
     val estadoMision by vistaModelo.estadoMision.collectAsState()
     val usuario = (estadoLogin as? EstadoUi.Exito)?.datos?.usuario
@@ -96,6 +97,20 @@ fun Navegacion(vistaModelo: VistaModelo) {
             )
         }
 
+        // Selfie de una cuenta que no lo tiene: se sube en cuanto se hace
+        composable("subir-selfie") {
+            PantallaCamara(
+                fichero = vistaModelo.ficheroSelfie(),
+                frontal = true,
+                titulo = "¡SONRÍE!",
+                onHecha = {
+                    vistaModelo.subirSelfie()
+                    navController.popBackStack()
+                },
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
         composable("lista") {
             PantallaLista(
                 usuario = usuario.orEmpty(),
@@ -146,7 +161,9 @@ fun Navegacion(vistaModelo: VistaModelo) {
                 cargando = estadoGrupos is EstadoUi.Reposo || estadoGrupos is EstadoUi.Cargando,
                 usuario = usuario,
                 partida = estadoPartida,
+                estadoSelfie = estadoSelfie,
                 onEmpezar = { vistaModelo.empezarPartida(it) },
+                onHacerSelfie = { navController.navigate("subir-selfie") },
                 onVolver = { navController.popBackStack() }
             )
         }

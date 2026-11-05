@@ -124,6 +124,20 @@ class Repositorio(
         }
 
     /**
+     * Sube el selfie de una cuenta que no lo tiene (las de ejemplo) y lo borra
+     * del dispositivo, igual que en el registro.
+     */
+    suspend fun subirSelfie(): EstadoUi<Unit> {
+        val selfie = withContext(Dispatchers.IO) { jpegParaSubir(fotos.ficheroSelfie()) }
+            ?: return EstadoUi.Error(MotivoError.Desconocido)
+        val resultado = conToken { token ->
+            api.subirSelfie(token, PeticionSelfie(Base64.encodeToString(selfie, Base64.NO_WRAP)))
+        }
+        withContext(Dispatchers.IO) { fotos.ficheroSelfie().delete() }
+        return resultado
+    }
+
+    /**
      * Descarga las misiones del usuario, guarda una copia local y las devuelve.
      * Si la red falla, devuelve la copia local en lugar de un error.
      */

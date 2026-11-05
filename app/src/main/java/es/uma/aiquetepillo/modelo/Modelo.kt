@@ -75,12 +75,13 @@ data class RespuestaMisiones(
     val misiones: List<Mision>
 )
 
-/** Un miembro de un grupo, con los puntos que lleva en él. */
+/** Un miembro de un grupo, con los puntos que lleva en él y si tiene selfie. */
 @Serializable
 data class Miembro(
     val usuario: String = "",
     val nombre: String = "",
-    val puntos: Int = 0
+    val puntos: Int = 0,
+    val selfie: Boolean = false
 )
 
 /**
@@ -116,6 +117,12 @@ data class PeticionGrupo(
 @Serializable
 data class PeticionUnirse(
     val codigo: String
+)
+
+/** Petición de POST /api/selfie: el selfie en Base64, para cuentas sin él. */
+@Serializable
+data class PeticionSelfie(
+    val selfie: String
 )
 
 /** Petición de POST /api/misiones/{id}/foto: la foto en Base64. */

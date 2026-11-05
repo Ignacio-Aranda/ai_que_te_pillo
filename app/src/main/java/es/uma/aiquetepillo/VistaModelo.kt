@@ -49,6 +49,10 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     private val _estadoRegistro = MutableStateFlow<EstadoUi<RespuestaLogin>>(EstadoUi.Reposo)
     val estadoRegistro: StateFlow<EstadoUi<RespuestaLogin>> = _estadoRegistro.asStateFlow()
 
+    /** Subida del selfie de una cuenta que no lo tiene. */
+    private val _estadoSelfie = MutableStateFlow<EstadoUi<Unit>>(EstadoUi.Reposo)
+    val estadoSelfie: StateFlow<EstadoUi<Unit>> = _estadoSelfie.asStateFlow()
+
     /** Selfie hecho para el registro, hasta que se sube. */
     private val _selfie = MutableStateFlow<Foto?>(null)
     val selfie: StateFlow<Foto?> = _selfie.asStateFlow()
@@ -87,6 +91,16 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
     fun selfieHecho() {
         val fichero = repositorio.ficheroSelfie()
         _selfie.value = Foto(fichero, fichero.lastModified())
+    }
+
+    /** Sube el selfie recién hecho y, si sale bien, recarga los grupos para que deje de pedirse. */
+    fun subirSelfie() {
+        viewModelScope.launch {
+            _estadoSelfie.value = EstadoUi.Cargando
+            val resultado = repositorio.subirSelfie()
+            _estadoSelfie.value = resultado
+            if (resultado is EstadoUi.Exito) cargarGrupos()
+        }
     }
 
     /** Crea la cuenta y, si sale bien, deja la sesión iniciada como el acceso. */
@@ -155,6 +169,7 @@ class VistaModelo(private val repositorio: Repositorio) : ViewModel() {
         _estadoInvitacion.value = EstadoUi.Reposo
         _estadoAltaGrupo.value = EstadoUi.Reposo
         _estadoPartida.value = EstadoUi.Reposo
+        _estadoSelfie.value = EstadoUi.Reposo
     }
 
     /** Empieza la partida y, si sale bien, recarga los grupos y las misiones nuevas. */

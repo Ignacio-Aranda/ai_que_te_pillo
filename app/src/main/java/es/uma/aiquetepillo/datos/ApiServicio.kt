@@ -36,6 +36,12 @@ interface ApiServicio {
     @POST("api/registro")
     suspend fun registro(@Body peticion: PeticionRegistro): RespuestaLogin
 
+    @POST("api/selfie")
+    suspend fun subirSelfie(
+        @Header("Authorization") autorizacion: String,
+        @Body peticion: PeticionSelfie
+    )
+
     /**
      * La cabecera de autorización viaja como parámetro: quien llame tiene que
      * componer el valor "Bearer <token>". Lo hace el Repositorio.

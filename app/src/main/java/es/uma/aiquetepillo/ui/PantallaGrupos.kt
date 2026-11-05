@@ -109,10 +109,13 @@ fun PantallaGrupo(
     cargando: Boolean,
     usuario: String?,
     partida: EstadoUi<Grupo>,
+    estadoSelfie: EstadoUi<Unit>,
     onEmpezar: (Int) -> Unit,
+    onHacerSelfie: () -> Unit,
     onVolver: () -> Unit
 ) {
     val contexto = LocalContext.current
+    val abrirCamara = rememberAbrirCamara(onHacerSelfie)
 
     PantallaConCabecera(grupo?.nombre?.uppercase() ?: "GRUPO", onVolver) {
         if (grupo == null) {
@@ -184,17 +187,31 @@ fun PantallaGrupo(
 
         TextoJuego("MIEMBROS (${grupo.miembros.size})", tamano = 18.sp, alineacion = TextAlign.Start)
         Spacer(Modifier.height(8.dp))
+        if (estadoSelfie is EstadoUi.Error) {
+            Aviso(textoDeError(estadoSelfie.motivo))
+            Spacer(Modifier.height(8.dp))
+        }
         grupo.miembros.forEach { miembro ->
-            TarjetaJuego(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+            // Las cuentas de ejemplo no tienen selfie: tocando la propia fila se hace uno
+            val sinSelfie = miembro.usuario == usuario && !miembro.selfie
+            val subiendo = estadoSelfie is EstadoUi.Cargando
+            val tarjeta = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            TarjetaJuego(if (sinSelfie && !subiendo) tarjeta.clickable { abrirCamara() } else tarjeta) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Medallon(miembro.nombre.firstOrNull()?.uppercase() ?: "?", tamano = 44.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text(
-                        miembro.nombre,
-                        color = if (miembro.usuario == usuario) Amarillo else Color.White,
-                        fontSize = 17.sp,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            miembro.nombre,
+                            color = if (miembro.usuario == usuario) Amarillo else Color.White,
+                            fontSize = 17.sp
+                        )
+                        if (sinSelfie) Text(
+                            if (subiendo) "Subiendo selfie..." else "📷 Toca para hacerte el selfie",
+                            color = Color.White,
+                            fontSize = 13.sp
+                        )
+                    }
                     if (miembro.usuario == grupo.creador) Text("👑", fontSize = 22.sp)
                     Spacer(Modifier.width(8.dp))
                     Pastilla("⭐", "${miembro.puntos}")
