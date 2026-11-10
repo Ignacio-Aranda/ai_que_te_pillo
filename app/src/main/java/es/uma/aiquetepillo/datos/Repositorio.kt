@@ -44,22 +44,14 @@ class Repositorio(
                 val respuesta = api.login(PeticionLogin(usuario, clave))
 
                 /* ----------------------------------------------------------
-                   EL REGISTRO DELIBERADO
+                   EL REGISTRO, SIN EL OBJETO (P3.1)
 
-                   Esta línea es el ejemplo de la sesión 2.4.3 puesto en una
-                   aplicación de verdad. RespuestaLogin es una clase de datos,
-                   así que su toString() lo genera el compilador e incluye
-                   TODOS los campos... incluido el token.
-
-                   Nadie ha escrito «imprime el token»: han escrito «imprime
-                   el objeto». El resultado es el mismo.
-
-                   En la sección 5.1 lo verás en logcat. Después prueba a
-                   comentar esta línea, vuelve a ejecutar y comprueba que el
-                   token desaparece: así demuestras la causa en lugar de
-                   suponerla.
+                   Hasta P3.1 esta línea imprimía la respuesta entera. Como
+                   RespuestaLogin es una clase de datos, su toString() incluye
+                   TODOS los campos, también el token. Ahora sólo se registra
+                   que el acceso ha ido bien.
                    ---------------------------------------------------------- */
-                Log.d("Repositorio", "Login correcto: $respuesta")
+                Log.d("Repositorio", "Login correcto")
 
                 sesion.guardarSesion(respuesta.token, respuesta.usuario, respuesta.nombre)
                 EstadoUi.Exito(respuesta)

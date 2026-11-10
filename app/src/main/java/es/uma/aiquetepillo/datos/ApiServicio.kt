@@ -124,18 +124,16 @@ object ClienteRed {
 
         /*
          * El interceptor de registro imprime en logcat cada petición y cada
-         * respuesta. Con nivel BODY imprime también el cuerpo, así que en la
-         * petición de acceso saldrán el usuario y la contraseña en claro.
+         * respuesta. Con nivel BODY imprimía también cabeceras y cuerpos: la
+         * contraseña del acceso, el token, la cabecera Authorization, los
+         * selfies y fotos en base64 y el contenido de las misiones.
          *
-         * Es comodísimo mientras se desarrolla y es un desastre si llega a la
-         * versión publicada.
-         *
-         * PARA EL CUADERNO: ¿qué ocurriría si este interceptor se publicase?
-         * ¿Quién podría leer esos registros, y con qué privilegios? Se retoma
-         * en la sesión 3.6.
+         * Desde P3.1 está en BASIC: sólo método, URL, código de respuesta y
+         * tamaño del cuerpo. Sigue sirviendo para ver que hay tráfico, sin
+         * sacar ningún secreto.
          */
         val registro = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.BASIC
         }
 
         /*

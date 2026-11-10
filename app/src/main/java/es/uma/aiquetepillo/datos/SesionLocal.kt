@@ -2,79 +2,191 @@ package es.uma.aiquetepillo.datos
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import javax.crypto.Cipher
 
 /* ==========================================================================
-   LA SESIÓN DEL USUARIO
-   Teoría: sesión 2.2.5 (almacenamiento) y 2.5.5 (persistencia).
+   LA SESIÓN DEL USUARIO · versión cifrada y ligada a la huella
+   Teoría: sesión 3.3, diapositivas 6, 12, 19 y 20. Práctica P3.1.
 
-   Guarda el token de sesión y el nombre de usuario para que la aplicación
-   recuerde quién ha entrado entre un arranque y el siguiente.
+   Guarda el token, el usuario y el nombre visible para que la aplicación
+   recuerde quién ha entrado entre un arranque y el siguiente. En disco solo
+   queda un paquete cifrado con AES-GCM (Cripto), con una clave del Android
+   Keystore que exige autenticación biométrica en cada uso.
 
-   AVISO: aquí se guarda SIN NINGUNA PROTECCIÓN, a propósito. En la sección 5
-   de la práctica vas a leer este mismo fichero desde adb y verás el token en
-   texto claro. En la práctica P3.1 lo sustituirás por una clave del almacén
-   del sistema (Android Keystore).
+   Como cada operación con esa clave pasa por el diálogo del sistema, que es
+   asíncrono y necesita una pantalla, la sesión ya no se lee del disco cada
+   vez que hace falta: se ABRE una vez con la huella y a partir de ahí vive en
+   memoria mientras la aplicación está en marcha. El precio es que el token
+   descifrado está en la memoria del proceso; el cifrado protege el disco, no
+   el proceso.
+
+   Los tres valores se guardan en UN SOLO campo: tres campos serían tres
+   operaciones y tres huellas.
+
+   Las funciones que usa el Repositorio (guardarSesion, obtenerToken,
+   obtenerUsuario, obtenerNombre, cerrarSesion y haySesion) mantienen la
+   misma firma que antes de cifrar.
    ========================================================================== */
 
 class SesionLocal(contexto: Context) {
 
-    /**
-     * SharedPreferences es un fichero XML dentro del directorio privado de la
-     * aplicación. MODE_PRIVATE significa que ninguna otra aplicación puede
-     * leerlo... siempre que nadie tenga acceso al dispositivo con adb y la
-     * aplicación sea depurable. Ésa es exactamente la suposición que vamos a
-     * romper en la sección 5.
-     */
     private val preferencias: SharedPreferences =
         contexto.getSharedPreferences(NOMBRE_FICHERO, Context.MODE_PRIVATE)
 
+    /** En qué situación está la sesión. La puerta biométrica la observa. */
+    enum class Estado {
+        /** No hay nada guardado: hay que iniciar sesión. */
+        SIN_SESION,
+
+        /** Se acaba de iniciar sesión y falta confirmar para guardarla cifrada. */
+        PENDIENTE_DE_GUARDAR,
+
+        /** Hay sesión guardada pero todavía no se ha desbloqueado. */
+        BLOQUEADA,
+
+        /** Desbloqueada: el token está en memoria y la aplicación puede trabajar. */
+        ABIERTA
+    }
+
+    init {
+        /*
+         * Las versiones anteriores a P3.1 guardaban el token, el usuario y el
+         * nombre en claro, cada uno en su campo. Cifrar a partir de ahora no
+         * protege lo que ya estaba escrito, así que si quedan esos campos se
+         * borran al arrancar: el usuario tendrá que volver a entrar.
+         */
+        if (preferencias.contains(CLAVE_TOKEN_EN_CLARO)) {
+            preferencias.edit().clear().apply()
+        }
+    }
+
+    private val _estado = MutableStateFlow(estadoInicial())
+    val estado: StateFlow<Estado> = _estado.asStateFlow()
+
+    private var tokenEnMemoria: String? = null
+    private var usuarioEnMemoria: String? = null
+    private var nombreEnMemoria: String? = null
+
+    private fun estadoInicial(): Estado =
+        if (preferencias.contains(CLAVE_DATOS)) Estado.BLOQUEADA else Estado.SIN_SESION
+
+    /* ----------------------------------------------------------------------
+       LO QUE VE EL RESTO DE LA APLICACIÓN
+       ---------------------------------------------------------------------- */
+
     /**
-     * Guarda la sesión: tres cadenas, en claro, en un XML.
+     * Deja la sesión en memoria y marca que falta persistirla.
      *
-     * apply() escribe en memoria y vuelca a disco en segundo plano. La
-     * alternativa, commit(), escribe de forma síncrona y devuelve si ha ido
-     * bien; aquí no hace falta y bloquearía el hilo que llama.
+     * No puede escribir en disco todavía, porque cifrar exige autenticación y
+     * esta función se llama desde una corrutina del repositorio, sin pantalla
+     * a la vista. La puerta biométrica verá el estado y pedirá la huella.
      */
     fun guardarSesion(token: String, usuario: String, nombre: String) {
-        preferencias.edit()
-            .putString(CLAVE_TOKEN, token)
-            .putString(CLAVE_USUARIO, usuario)
-            .putString(CLAVE_NOMBRE, nombre)
-            .apply()
+        tokenEnMemoria = token
+        usuarioEnMemoria = usuario
+        nombreEnMemoria = nombre
+        _estado.value = Estado.PENDIENTE_DE_GUARDAR
     }
 
-    /**
-     * Devuelve el token, o null si no hay sesión.
-     *
-     * Fíjate en el tipo: String?, con interrogación. Es la garantía de la
-     * sesión 2.4.2. Quien llame a esta función está obligado por el compilador
-     * a decidir qué pasa cuando no hay token, y no puede olvidarse.
-     */
-    fun obtenerToken(): String? = preferencias.getString(CLAVE_TOKEN, null)
+    fun obtenerToken(): String? = tokenEnMemoria
 
     /** El usuario de la sesión, o null. Sirve para saber de quién son los datos locales. */
-    fun obtenerUsuario(): String? = preferencias.getString(CLAVE_USUARIO, null)
+    fun obtenerUsuario(): String? = usuarioEnMemoria
 
     /** El nombre que se muestra en la pantalla principal. */
-    fun obtenerNombre(): String? = preferencias.getString(CLAVE_NOMBRE, null)
+    fun obtenerNombre(): String? = nombreEnMemoria
 
-    /**
-     * Borra los datos de sesión de ESTE fichero.
-     *
-     * clear() vacía el XML entero, así que después la aplicación ya no está
-     * autenticada. Otra cosa es que no quede nada del usuario en el
-     * dispositivo: eso lo comprobarás tú en la sección 5.5.
-     */
+    fun haySesion(): Boolean = tokenEnMemoria != null
+
     fun cerrarSesion() {
+        tokenEnMemoria = null
+        usuarioEnMemoria = null
+        nombreEnMemoria = null
         preferencias.edit().clear().apply()
+        _estado.value = Estado.SIN_SESION
     }
 
-    fun haySesion(): Boolean = obtenerToken() != null
+    /* ----------------------------------------------------------------------
+       LO QUE USA LA PUERTA BIOMÉTRICA
+
+       El cifrador no se usa en estas funciones: se crea, se le entrega al
+       diálogo del sistema y vuelve utilizable solo si la autenticación salió
+       bien. Quien impone la condición es el almacén del sistema.
+       ---------------------------------------------------------------------- */
+
+    /** Cifrador para persistir la sesión recién iniciada. Va al diálogo. */
+    fun cifradorParaGuardar(): Cipher = Cripto.cifradorParaCifrar()
+
+    /** Cifrador para abrir la sesión guardada. Va al diálogo. */
+    fun cifradorParaAbrir(): Cipher =
+        Cripto.cifradorParaDescifrar(preferencias.getString(CLAVE_DATOS, null)!!)
+
+    /** Termina de guardar con el cifrador que devuelve el diálogo, el único habilitado. */
+    fun completarGuardado(cifrador: Cipher) {
+        val token = tokenEnMemoria ?: return
+        val claro = listOf(token, usuarioEnMemoria.orEmpty(), nombreEnMemoria.orEmpty())
+            .joinToString(SEPARADOR_CAMPOS)
+        preferencias.edit().putString(CLAVE_DATOS, Cripto.empaquetar(cifrador, claro)).apply()
+        _estado.value = Estado.ABIERTA
+    }
+
+    /**
+     * Termina de abrir con el cifrador que devuelve el diálogo.
+     *
+     * Devuelve false si los datos ya no se pueden recuperar, y en ese caso los
+     * descarta: no hay nada que reintentar.
+     */
+    fun completarApertura(cifrador: Cipher): Boolean {
+        val paquete = preferencias.getString(CLAVE_DATOS, null) ?: return false
+        return try {
+            val campos = Cripto.desempaquetar(cifrador, paquete).split(SEPARADOR_CAMPOS)
+            tokenEnMemoria = campos[0]
+            usuarioEnMemoria = campos.getOrNull(1)
+            nombreEnMemoria = campos.getOrNull(2)
+            _estado.value = Estado.ABIERTA
+            true
+        } catch (e: Exception) {
+            // Se registra QUE ha fallado y de qué tipo. Nunca el contenido.
+            Log.w("SesionLocal", "Sesión irrecuperable: ${e.javaClass.simpleName}")
+            descartarSesionIrrecuperable()
+            false
+        }
+    }
+
+    /**
+     * Cuando la clave ya no sirve (huella nueva, bloqueo de pantalla retirado).
+     *
+     * Se borran los datos cifrados, ilegibles para siempre, y la clave, que
+     * puede estar invalidada: si se dejara, el siguiente inicio de sesión
+     * fallaría igual.
+     */
+    fun descartarSesionIrrecuperable() {
+        tokenEnMemoria = null
+        usuarioEnMemoria = null
+        nombreEnMemoria = null
+        preferencias.edit().clear().apply()
+        try {
+            Cripto.borrarClave()
+        } catch (e: Exception) {
+            Log.w("SesionLocal", "No se ha podido borrar la clave: ${e.javaClass.simpleName}")
+        }
+        _estado.value = Estado.SIN_SESION
+    }
 
     companion object {
         const val NOMBRE_FICHERO = "sesion"
-        const val CLAVE_TOKEN = "token"
-        const val CLAVE_USUARIO = "usuario"
-        const val CLAVE_NOMBRE = "nombre"
+
+        /** Un único campo: una operación criptográfica, una autenticación. */
+        const val CLAVE_DATOS = "datos"
+
+        /** Separa token, usuario y nombre dentro del paquete cifrado. */
+        private const val SEPARADOR_CAMPOS = "\u0000"
+
+        /** Campo de las versiones anteriores a P3.1, con el token en claro. */
+        private const val CLAVE_TOKEN_EN_CLARO = "token"
     }
 }

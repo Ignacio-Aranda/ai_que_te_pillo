@@ -16,6 +16,8 @@ serializacion = "1.11.0"
 lifecycle = "2.8.7"
 navigation = "2.10.2"
 camerax = "1.4.2"
+biometria = "1.1.0"
+fragment  = "1.8.5"
 
 [libraries]
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
@@ -46,6 +48,8 @@ camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" 
 camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+biometric    = { module = "androidx.biometric:biometric", version.ref = "biometria" }
+fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

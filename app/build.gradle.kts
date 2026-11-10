@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.kotlinx.serialization)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.navigation.compose)
+    implementation(libs.biometric)
+    implementation(libs.fragment.ktx)
     implementation(libs.camera.core)
     implementation(libs.camera.camera2)
     implementation(libs.camera.lifecycle)
