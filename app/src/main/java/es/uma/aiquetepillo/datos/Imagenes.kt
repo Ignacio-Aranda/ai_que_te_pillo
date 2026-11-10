@@ -3,47 +3,50 @@ package es.uma.aiquetepillo.datos
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.media.ExifInterface
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-/**
- * Carga una foto reducida para que su lado mayor no pase mucho de `ladoMaximo`,
- * y la gira según su EXIF. Devuelve null si el fichero no existe o no se lee.
- */
-fun cargarReducida(fichero: File, ladoMaximo: Int): Bitmap? {
-    if (!fichero.exists()) return null
-    val medidas = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeFile(fichero.path, medidas)
-    var reduccion = 1
-    while (maxOf(medidas.outWidth, medidas.outHeight) / reduccion > ladoMaximo * 2) reduccion *= 2
-    val mapa = BitmapFactory.decodeFile(fichero.path, BitmapFactory.Options().apply { inSampleSize = reduccion })
-        ?: return null
+/** Lado mayor con el que se guarda y se sube cada foto. */
+private const val LADO_GUARDADO = 1280
 
-    // CameraX guarda la orientación en el EXIF en lugar de girar los píxeles
-    val grados = when (ExifInterface(fichero.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, 0)) {
-        ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-        ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-        ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-        else -> 0f
+/**
+ * Guarda una foto recién hecha: girada según `grados`, reducida a
+ * LADO_GUARDADO, como JPEG sin metadatos y cifrada (CifradoFotos).
+ *
+ * La foto se recibe en memoria y no pasa nunca por el disco en claro. Al
+ * girar los píxeles aquí, el fichero ya no necesita la orientación del EXIF.
+ */
+fun guardarFoto(mapa: Bitmap, grados: Int, fichero: File) {
+    val giro = Matrix().apply {
+        postRotate(grados.toFloat())
+        val escala = minOf(1f, LADO_GUARDADO.toFloat() / maxOf(mapa.width, mapa.height))
+        postScale(escala, escala)
     }
-    if (grados == 0f) return mapa
-    val giro = Matrix().apply { postRotate(grados) }
-    return Bitmap.createBitmap(mapa, 0, 0, mapa.width, mapa.height, giro, true)
+    val final = Bitmap.createBitmap(mapa, 0, 0, mapa.width, mapa.height, giro, true)
+    CifradoFotos.escribir(fichero, comprimir(final))
 }
 
 /**
- * La foto como JPEG reducido, ya girado, listo para subir. Pesa mucho menos que
- * el original y no lleva los metadatos EXIF de la cámara.
+ * Descifra una foto y la carga reducida para que su lado mayor no pase mucho
+ * de `ladoMaximo`. Devuelve null si el fichero no existe o no se puede leer.
  */
-fun jpegParaSubir(fichero: File, ladoMaximo: Int = 1280): ByteArray? {
-    val cargada = cargarReducida(fichero, ladoMaximo) ?: return null
-    val escala = minOf(1f, ladoMaximo.toFloat() / maxOf(cargada.width, cargada.height))
-    val mapa = Bitmap.createScaledBitmap(
-        cargada, (cargada.width * escala).toInt(), (cargada.height * escala).toInt(), true
-    )
-    return ByteArrayOutputStream().use { salida ->
+fun cargarReducida(fichero: File, ladoMaximo: Int): Bitmap? {
+    val bytes = CifradoFotos.leer(fichero) ?: return null
+    val medidas = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, medidas)
+    var reduccion = 1
+    while (maxOf(medidas.outWidth, medidas.outHeight) / reduccion > ladoMaximo * 2) reduccion *= 2
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = reduccion })
+}
+
+/**
+ * La foto como JPEG, lista para subir. Las fotos ya se guardan giradas,
+ * reducidas y sin metadatos, así que basta con descifrarlas.
+ */
+fun jpegParaSubir(fichero: File): ByteArray? = CifradoFotos.leer(fichero)
+
+private fun comprimir(mapa: Bitmap): ByteArray =
+    ByteArrayOutputStream().use { salida ->
         mapa.compress(Bitmap.CompressFormat.JPEG, 85, salida)
         salida.toByteArray()
     }
-}

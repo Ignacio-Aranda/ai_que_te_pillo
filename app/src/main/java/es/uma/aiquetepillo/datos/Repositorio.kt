@@ -142,7 +142,7 @@ class Repositorio(
             val fichero = fotos.ficheroSelfieDe(usuario)
             if (!fichero.exists()) {
                 try {
-                    fichero.writeBytes(api.selfieDe("Bearer $token", usuario).bytes())
+                    CifradoFotos.escribir(fichero, api.selfieDe("Bearer $token", usuario).bytes())
                 } catch (e: Exception) {
                     return@mapNotNull null
                 }
