@@ -1,5 +1,7 @@
 package es.uma.aiquetepillo.ui
 
+import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.util.Log
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import es.uma.aiquetepillo.datos.Cripto
 import es.uma.aiquetepillo.datos.SesionLocal
 import javax.crypto.Cipher
 
@@ -88,6 +91,7 @@ fun PuertaBiometrica(
                 val cifrador = try {
                     sesion.cifradorParaGuardar()
                 } catch (e: Exception) {
+                    Log.w("PuertaBiometrica", "No se ha creado la clave: ${e.javaClass.simpleName}: ${e.message}")
                     aviso = "Configura un bloqueo de pantalla y una huella para guardar la sesión."
                     null
                 }
@@ -116,15 +120,24 @@ fun PuertaBiometrica(
             onPulsar = {
                 /*
                  * Crear el cifrador puede fallar aquí mismo, antes de llegar
-                 * al diálogo, si la clave ha sido invalidada. Es el caso de
-                 * «se ha registrado una huella nueva»: se detecta, se
-                 * descarta lo que ya no se puede recuperar y se avisa.
+                 * al diálogo. Solo se descarta la sesión si el fallo es
+                 * definitivo: la clave ha sido invalidada (se ha registrado
+                 * una huella nueva) o ya no existe (se ha retirado el bloqueo
+                 * de pantalla). Descartar borra también las misiones y las
+                 * fotos, así que ante cualquier otro fallo se avisa y se deja
+                 * reintentar.
                  */
+                val existia = Cripto.existeClave()
                 val cifrador = try {
                     sesion.cifradorParaAbrir()
                 } catch (e: Exception) {
-                    sesion.descartarSesionIrrecuperable()
-                    aviso = "La sesión guardada ya no se puede recuperar. Vuelve a iniciar sesión."
+                    Log.w("PuertaBiometrica", "No se ha abierto la sesión: ${e.javaClass.simpleName}: ${e.message}")
+                    if (e is KeyPermanentlyInvalidatedException || !existia) {
+                        sesion.descartarSesionIrrecuperable()
+                        aviso = "La sesión guardada ya no se puede recuperar. Vuelve a iniciar sesión."
+                    } else {
+                        aviso = "No se ha podido abrir la sesión. Inténtalo de nuevo."
+                    }
                     null
                 }
                 if (cifrador != null) {

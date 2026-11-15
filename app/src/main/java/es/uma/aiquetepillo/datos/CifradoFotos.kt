@@ -2,7 +2,6 @@ package es.uma.aiquetepillo.datos
 
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.Log
 import java.io.File
@@ -30,9 +29,10 @@ import javax.crypto.spec.GCMParameterSpec
    con el teléfono bloqueado, el almacén se niega a descifrar. En Android 8
    (minSdk 26) esa condición no existe y la clave no tiene ninguna.
 
-   Lo que protege: los ficheros copiados fuera de la aplicación (run-as sobre
-   la variante depurable, una copia de seguridad, un volcado del
-   almacenamiento) no se pueden abrir, porque la clave no sale del almacén.
+   Lo que protege: los ficheros copiados fuera de la aplicación (con run-as
+   sobre la variante depurable o con un volcado del almacenamiento) no se
+   pueden abrir, porque la clave no sale del almacén. La caché, donde están,
+   no entra en la copia de seguridad.
    Lo que no protege: quien ejecuta código como la aplicación con el terminal
    desbloqueado puede pedirle al almacén que descifre. En la variante
    depurable basta con adb y run-as.
@@ -68,8 +68,9 @@ object CifradoFotos {
      * descifrar.
      *
      * El fichero solo se borra cuando no se podrá leer nunca: si está
-     * truncado, si la etiqueta no coincide (contenido manipulado o nombre
-     * cambiado) o si la clave ha quedado invalidada. Entonces el selfie de un
+     * truncado o si la etiqueta no coincide (contenido manipulado, nombre
+     * cambiado o clave que ya no existe y se ha creado de nuevo). Esta clave
+     * no exige autenticación, así que el sistema no la invalida. Entonces el selfie de un
      * miembro se vuelve a descargar y la foto de una misión hay que repetirla.
      * Cualquier otro fallo, como que el almacén rechace la clave porque el
      * terminal se ha bloqueado a mitad de una lectura, deja el fichero intacto.
@@ -94,7 +95,7 @@ object CifradoFotos {
         } catch (e: Exception) {
             // Se registra QUE ha fallado y por qué. Nunca el contenido.
             Log.w("CifradoFotos", "Foto ilegible: ${e.javaClass.simpleName}: ${e.message}")
-            if (e is AEADBadTagException || e is KeyPermanentlyInvalidatedException) fichero.delete()
+            if (e is AEADBadTagException) fichero.delete()
             null
         }
     }
@@ -104,6 +105,7 @@ object CifradoFotos {
      * almacén genera un nonce nuevo en cada cifrado, porque
      * setRandomizedEncryptionRequired viene activado por defecto.
      */
+    @Synchronized  // dos escrituras simultáneas no deben crear dos claves
     private fun obtenerOCrearClave(): SecretKey {
         val almacen = KeyStore.getInstance(ALMACEN).apply { load(null) }
         (almacen.getEntry(ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }

@@ -2,6 +2,7 @@ package es.uma.aiquetepillo.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -173,6 +174,7 @@ fun PantallaCamara(
                                                 guardarFoto(imagen.toBitmap(), imagen.imageInfo.rotationDegrees, fichero)
                                                 true
                                             } catch (e: Exception) {
+                                                Log.w("PantallaCamara", "No se ha guardado la foto: ${e.javaClass.simpleName}: ${e.message}")
                                                 false
                                             } finally {
                                                 imagen.close()
@@ -207,6 +209,7 @@ fun PantallaCamara(
 @Composable
 fun MiniaturaFoto(foto: Foto, modifier: Modifier = Modifier, descripcion: String = "Foto de la misión") {
     val imagen by produceState<ImageBitmap?>(null, foto.fichero.path, foto.version) {
+        value = null  // que no se vea la anterior mientras carga esta
         value = withContext(Dispatchers.IO) { cargarReducida(foto.fichero, ladoMaximo = 800)?.asImageBitmap() }
     }
     val cargada = imagen ?: return
@@ -225,6 +228,7 @@ fun MiniaturaFoto(foto: Foto, modifier: Modifier = Modifier, descripcion: String
 fun Avatar(nombre: String, selfie: Foto?, tamano: Dp) {
     // Fuera del hilo principal, como en MiniaturaFoto; hasta entonces, la inicial
     val imagen by produceState<ImageBitmap?>(null, selfie?.fichero?.path, selfie?.version) {
+        value = null  // que una fila reutilizada no enseñe el selfie de otro jugador
         value = selfie?.let {
             withContext(Dispatchers.IO) { cargarReducida(it.fichero, ladoMaximo = 256)?.asImageBitmap() }
         }

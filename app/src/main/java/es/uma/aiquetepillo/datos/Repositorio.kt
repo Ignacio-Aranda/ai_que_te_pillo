@@ -146,6 +146,8 @@ class Repositorio(
                 try {
                     CifradoFotos.escribir(fichero, api.selfieDe("Bearer $token", usuario).bytes())
                 } catch (e: Exception) {
+                    // Sin selfie (404), sin red o sin cifrar: se omite. El tipo y el mensaje no llevan datos
+                    Log.w("Repositorio", "Selfie no disponible: ${e.javaClass.simpleName}: ${e.message}")
                     return@mapNotNull null
                 }
             }
@@ -314,8 +316,11 @@ class Repositorio(
      */
     fun borrarDatosLocales() {
         CoroutineScope(Dispatchers.IO).launch {
-            dao.borrarTodas()
-            fotos.borrarTodas()
+            // Cada borrado por separado: si falla uno, el otro se intenta igual
+            runCatching { dao.borrarTodas() }
+                .onFailure { Log.w("Repositorio", "No se han borrado las misiones: ${it.javaClass.simpleName}: ${it.message}") }
+            runCatching { fotos.borrarTodas() }
+                .onFailure { Log.w("Repositorio", "No se han borrado las fotos: ${it.javaClass.simpleName}: ${it.message}") }
         }
     }
 

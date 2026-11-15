@@ -22,13 +22,13 @@ De los seis adversarios de la sesión 3.1, se consideran los siguientes:
 | Analista con el artefacto | Basta el APK para buscar secretos y estudiar la API | Apartados 3 y 4 |
 | Cadena de suministro | Las bibliotecas de AndroidX, OkHttp y el SDK del proveedor de IA | Apartado 5 |
 
-Los escenarios de partida son los cuatro del documento de alcance: quien se cuela en un grupo, quien tiene el móvil en la mano o comparte la wifi, quien busca las fotos para difundirlas y el jugador tramposo.
+Los escenarios de partida son los cuatro del documento de alcance: quien accede a un grupo sin invitación, quien tiene el móvil en la mano o comparte la wifi, quien busca las fotos para difundirlas y el jugador tramposo.
 
 ## 2. Datos en reposo
 
 ### 2.1 Qué se cifra
 
-La sesión del usuario (token, nombre de usuario y nombre visible) se guarda cifrada en `shared_prefs/sesion.xml`, en un único campo `datos`. El valor contiene el nonce y el texto cifrado en base64, separados por dos puntos. Los tres valores van en un solo paquete porque cada operación con la clave exige una autenticación: tres campos serían tres huellas.
+La sesión del usuario (token, nombre de usuario y nombre visible) se guarda cifrada en `shared_prefs/sesion.xml`, en un único campo `datos`. El valor contiene el nonce y el texto cifrado en base64, separados por dos puntos. Los tres valores van en un solo paquete porque cada operación con la clave exige una autenticación: tres campos exigirían tres autenticaciones.
 
 Las fotos se guardan cifradas en `cache/fotos`: el selfie de registro hasta que se sube, los selfies descargados de los miembros de los grupos hasta el cierre de sesión y la foto de cada misión hasta que se consigue o se salta. Cada fichero (`selfie.cifrada`, `selfie_<usuario>.cifrada`, `mision_<id>.cifrada`) contiene el nonce de 12 bytes seguido del texto cifrado y su etiqueta. El nombre del fichero se incluye como dato asociado de GCM: no se cifra, pero queda cubierto por la etiqueta, de modo que una foto no puede sustituirse por otra renombrando ficheros.
 
@@ -55,19 +55,20 @@ Mientras la sesión está bloqueada no se compone ninguna pantalla de la aplicac
 | Situación | Comportamiento |
 |---|---|
 | Se registra una huella nueva | La clave queda invalidada. Al desbloquear, el diálogo no llega a aparecer: se borran la sesión cifrada y la clave y se vuelve a la pantalla de acceso. Se borran también la copia local de las misiones y todas las fotos, porque eran del usuario anterior y quien entre después puede ser otra persona. El siguiente acceso crea una clave nueva |
-| Se retira el bloqueo de pantalla | El sistema destruye la clave y el resultado es el mismo. Mientras el terminal no tenga bloqueo de pantalla y una huella, no se puede crear una clave nueva: la aplicación se niega a continuar después del acceso y pide configurarlos. Se ha preferido a funcionar con la sesión sin cifrar |
+| Se retira el bloqueo de pantalla | El sistema destruye la clave y el resultado es el mismo. Mientras el terminal no tenga bloqueo de pantalla y una huella, no se puede crear una clave nueva: la aplicación se niega a continuar después del acceso y pide configurarlos. Se ha preferido este comportamiento a funcionar con la sesión sin cifrar |
+| Falla la apertura por otro motivo | La sesión no se descarta, porque descartarla borraría también las misiones y las fotos: se avisa y se permite reintentar. Solo se descarta si la clave ha sido invalidada o ya no existe |
 | Se cancela el diálogo al desbloquear | No se hace ninguna operación. La aplicación permanece en la pantalla de la puerta, sin mostrar datos, y permite reintentar |
 | Se cancela el diálogo al proteger una sesión recién iniciada | La sesión no se escribe en disco: existe solo en memoria y la aplicación permanece en la pantalla «Proteger tu sesión», sin mostrar contenido, hasta que se confirma con la huella. Si se cierra la aplicación, la sesión se pierde y hay que volver a entrar. Se ha decidido no permitir el juego con una sesión que no ha quedado protegida |
 | El cifrado falla pese a una autenticación correcta | Se borra la clave, la sesión sigue pendiente de guardar y se avisa. El siguiente intento crea una clave nueva |
-| Hay una sesión en claro de una versión anterior | Se borra al arrancar y hay que volver a entrar |
-| Una foto cifrada se ha modificado, se ha renombrado o su clave se ha invalidado | GCM rechaza la etiqueta, o el almacén la clave, y el fichero se borra. Un selfie se vuelve a descargar; la foto de una misión hay que repetirla. Cualquier otro fallo de lectura, como un rechazo del almacén porque el terminal se ha bloqueado, deja el fichero intacto |
+| Hay una sesión en claro de una versión anterior | Se borra al arrancar y hay que volver a entrar. Las filas de la tabla `misiones` de ese usuario permanecen hasta su siguiente cierre de sesión |
+| Una foto cifrada se ha modificado, se ha renombrado o su clave ya no existe | GCM rechaza la etiqueta y el fichero se borra; si faltaba la clave, el almacén ha creado otra con la que la etiqueta no coincide. Un selfie se vuelve a descargar; la foto de una misión hay que repetirla. Cualquier otro fallo de lectura, como un rechazo del almacén porque el terminal se ha bloqueado, deja el fichero intacto |
 | Hay fotos en claro (`.jpg`) de una versión anterior | Se borran al arrancar |
 
 ### 2.5 Registros
 
 La línea que registraba la respuesta de acceso completa, con el token, solo indica ahora que el acceso ha sido correcto. El interceptor de registro de OkHttp en nivel `BODY` se sustituye por uno propio que escribe el verbo HTTP, el nombre de la operación de la API y el código de respuesta, por ejemplo `GET grupos -> 200`. El nivel `BASIC` del interceptor estándar no es suficiente, porque imprime la URL completa y en la ruta viajan el código de invitación de un grupo (`api/invitaciones/{codigo}`) y los nombres de usuario de los miembros (`api/usuarios/{usuario}/selfie`).
 
-Con ello dejan de aparecer en logcat la contraseña, el token, la cabecera `Authorization`, los selfies y fotos en base64, el contenido de misiones y grupos, los códigos de invitación y los nombres de usuario. Los fallos de las operaciones criptográficas registran el tipo y el mensaje de la excepción, que genera el almacén y no contiene datos del usuario.
+Con ello dejan de aparecer en logcat la contraseña, el token, la cabecera `Authorization`, los selfies y fotos en base64, el contenido de misiones y grupos, los códigos de invitación y los nombres de usuario. Los fallos de las operaciones criptográficas, de la descarga de selfies y del guardado de fotos registran el tipo y el mensaje de la excepción, que no contienen datos del usuario.
 
 ### 2.6 Qué queda fuera
 
@@ -105,9 +106,9 @@ Se completa en P3.3. Partirá del inventario de superficie del documento de alca
 
 ## 5. Riesgos asumidos
 
-**Base de datos de misiones sin cifrar.** La tabla `misiones` guarda las misiones que el servidor devuelve al usuario, con su título, descripción, puntos, fecha y propietario. Las filas se reemplazan al recargar y no se eliminan hasta el cierre de sesión o el descarte de una sesión irrecuperable. Es una copia de datos que están en el servidor: perderla no cuesta nada, y cifrarla exigiría una biblioteca de cifrado transparente y una clave con ventana de validez para no pedir la huella en cada consulta. Se asume en esta versión, con el coste de que quien tenga los ficheros, o la copia de seguridad, ve a quién tiene que fotografiar el jugador y en qué situación.
+**Base de datos de misiones sin cifrar.** La tabla `misiones` guarda las misiones que el servidor devuelve al usuario, con su título, descripción, puntos, fecha y propietario. Las filas se reemplazan al recargar y no se eliminan hasta el cierre de sesión o el descarte de una sesión irrecuperable. Es una copia de datos que están en el servidor: su pérdida no tiene coste, y cifrarla exigiría una biblioteca de cifrado transparente y una clave con ventana de validez para no pedir la huella en cada consulta. Se asume en esta versión, con el coste de que quien tenga los ficheros, o la copia de seguridad, ve a quién tiene que fotografiar el jugador y en qué situación.
 
-**Clave de las fotos sin autenticación por uso.** Ligar las fotos a la huella, como la sesión, exigiría una autenticación en cada lectura. Se ha optado por una clave que solo funciona con el terminal desbloqueado. Protege frente a quien copia los ficheros (con `run-as`, una copia de seguridad o un volcado del almacenamiento) y frente a quien tiene el terminal bloqueado. No protege frente a quien, con el terminal desbloqueado, ejecuta código con la identidad de la aplicación: quien tiene privilegios totales y, en la variante depurable, cualquiera con adb y `run-as`. En Android 8 tampoco protege frente al terminal bloqueado.
+**Clave de las fotos sin autenticación por uso.** Ligar las fotos a la huella, como la sesión, exigiría una autenticación en cada lectura. Se ha optado por una clave que solo funciona con el terminal desbloqueado. Protege frente a quien copia los ficheros (con `run-as` o con un volcado del almacenamiento; la caché no entra en la copia de seguridad) y frente a quien tiene el terminal bloqueado. No protege frente a quien, con el terminal desbloqueado, ejecuta código con la identidad de la aplicación: quien tiene privilegios totales y, en la variante depurable, cualquiera con adb y `run-as`. En Android 8 tampoco protege frente al terminal bloqueado.
 
 **Memoria del proceso.** El token descifrado es necesario mientras se juega. Se asume que quien tiene privilegios totales sobre un terminal con la sesión abierta puede leerlo.
 

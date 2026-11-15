@@ -79,6 +79,10 @@ object Cripto {
         return generador.generateKey()
     }
 
+    /** Si la clave existe todavía. Al retirar el bloqueo de pantalla, el sistema la destruye. */
+    fun existeClave(): Boolean =
+        KeyStore.getInstance(ALMACEN).apply { load(null) }.containsAlias(ALIAS)
+
     /**
      * Destruye la clave.
      *
