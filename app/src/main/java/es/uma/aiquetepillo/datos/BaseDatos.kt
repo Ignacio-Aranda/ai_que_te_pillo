@@ -12,8 +12,9 @@ import androidx.room.*
    el SQL por ti y comprueba las consultas al compilar.
 
    AVISO: el fichero de base de datos se escribe SIN CIFRAR. No es un descuido,
-   es el comportamiento por defecto de Room. En la sección 5.3 lo sacarás del
-   dispositivo y lo abrirás; en la práctica P3.1 lo cifrarás.
+   es el comportamiento por defecto de Room. En P3.1 se ha decidido no
+   cifrarlo: es un riesgo asumido, justificado en el apartado 5 del documento
+   de diseño de seguridad.
    ========================================================================== */
 
 /**
@@ -37,7 +38,7 @@ data class MisionEntidad(
  * El DAO declara QUÉ consultas existen; Room genera el código que las ejecuta
  * y comprueba el SQL al compilar, no en ejecución.
  *
- * Las tres funciones son `suspend`: no se pueden llamar desde el hilo
+ * Todas las funciones son `suspend`: no se pueden llamar desde el hilo
  * principal y el compilador lo impone. Es la regla de la sesión 2.4.5
  * convertida en una restricción del lenguaje.
  */
@@ -55,6 +56,10 @@ interface MisionDao {
     /** Borra todo lo de un propietario. Existe; otra cosa es que alguien la llame. */
     @Query("DELETE FROM misiones WHERE propietario = :propietario")
     suspend fun borrarDe(propietario: String)
+
+    /** Borra todas las filas. Se usa cuando ya no se sabe de quién eran (sesión descartada). */
+    @Query("DELETE FROM misiones")
+    suspend fun borrarTodas()
 }
 
 @Database(entities = [MisionEntidad::class], version = 1, exportSchema = false)

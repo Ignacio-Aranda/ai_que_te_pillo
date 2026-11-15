@@ -3,7 +3,9 @@ package es.uma.aiquetepillo.datos
 import android.util.Base64
 import android.util.Log
 import es.uma.aiquetepillo.modelo.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.File
@@ -44,22 +46,14 @@ class Repositorio(
                 val respuesta = api.login(PeticionLogin(usuario, clave))
 
                 /* ----------------------------------------------------------
-                   EL REGISTRO DELIBERADO
+                   EL REGISTRO, SIN EL OBJETO (P3.1)
 
-                   Esta línea es el ejemplo de la sesión 2.4.3 puesto en una
-                   aplicación de verdad. RespuestaLogin es una clase de datos,
-                   así que su toString() lo genera el compilador e incluye
-                   TODOS los campos... incluido el token.
-
-                   Nadie ha escrito «imprime el token»: han escrito «imprime
-                   el objeto». El resultado es el mismo.
-
-                   En la sección 5.1 lo verás en logcat. Después prueba a
-                   comentar esta línea, vuelve a ejecutar y comprueba que el
-                   token desaparece: así demuestras la causa en lugar de
-                   suponerla.
+                   Hasta P3.1 esta línea imprimía la respuesta entera. Como
+                   RespuestaLogin es una clase de datos, su toString() incluye
+                   TODOS los campos, también el token. Ahora sólo se registra
+                   que el acceso ha ido bien.
                    ---------------------------------------------------------- */
-                Log.d("Repositorio", "Login correcto: $respuesta")
+                Log.d("Repositorio", "Login correcto")
 
                 sesion.guardarSesion(respuesta.token, respuesta.usuario, respuesta.nombre)
                 EstadoUi.Exito(respuesta)
@@ -150,8 +144,10 @@ class Repositorio(
             val fichero = fotos.ficheroSelfieDe(usuario)
             if (!fichero.exists()) {
                 try {
-                    fichero.writeBytes(api.selfieDe("Bearer $token", usuario).bytes())
+                    CifradoFotos.escribir(fichero, api.selfieDe("Bearer $token", usuario).bytes())
                 } catch (e: Exception) {
+                    // Sin selfie (404), sin red o sin cifrar: se omite. El tipo y el mensaje no llevan datos
+                    Log.w("Repositorio", "Selfie no disponible: ${e.javaClass.simpleName}: ${e.message}")
                     return@mapNotNull null
                 }
             }
@@ -309,6 +305,22 @@ class Repositorio(
             }
             fotos.borrarTodas()
             sesion.cerrarSesion()
+        }
+    }
+
+    /**
+     * Borra la copia local de las misiones de todos los usuarios y todas las
+     * fotos. Se usa cuando la sesión guardada se descarta por irrecuperable:
+     * ya no se puede saber de quién eran los datos. Se lanza en segundo plano
+     * porque se llama desde la puerta biométrica, en el hilo principal.
+     */
+    fun borrarDatosLocales() {
+        CoroutineScope(Dispatchers.IO).launch {
+            // Cada borrado por separado: si falla uno, el otro se intenta igual
+            runCatching { dao.borrarTodas() }
+                .onFailure { Log.w("Repositorio", "No se han borrado las misiones: ${it.javaClass.simpleName}: ${it.message}") }
+            runCatching { fotos.borrarTodas() }
+                .onFailure { Log.w("Repositorio", "No se han borrado las fotos: ${it.javaClass.simpleName}: ${it.message}") }
         }
     }
 
