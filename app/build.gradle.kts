@@ -43,7 +43,7 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx)
-    implementation(libs.okhttp.logging)
+    implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.navigation.compose)

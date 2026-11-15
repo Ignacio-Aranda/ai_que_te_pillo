@@ -3,7 +3,9 @@ package es.uma.aiquetepillo.datos
 import android.util.Base64
 import android.util.Log
 import es.uma.aiquetepillo.modelo.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import java.io.File
@@ -301,6 +303,19 @@ class Repositorio(
             }
             fotos.borrarTodas()
             sesion.cerrarSesion()
+        }
+    }
+
+    /**
+     * Borra la copia local de las misiones de todos los usuarios y todas las
+     * fotos. Se usa cuando la sesión guardada se descarta por irrecuperable:
+     * ya no se puede saber de quién eran los datos. Se lanza en segundo plano
+     * porque se llama desde la puerta biométrica, en el hilo principal.
+     */
+    fun borrarDatosLocales() {
+        CoroutineScope(Dispatchers.IO).launch {
+            dao.borrarTodas()
+            fotos.borrarTodas()
         }
     }
 

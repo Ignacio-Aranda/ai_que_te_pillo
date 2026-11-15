@@ -32,6 +32,8 @@ import java.io.File
  *   bloqueada no se compone. El VistaModelo también se crea dentro, porque al
  *   crearse lee la sesión guardada para decidir si se empieza en la lista, y
  *   antes de desbloquear todavía no hay ninguna en memoria.
+ * - Si la sesión guardada se descarta por irrecuperable, se borran también la
+ *   copia local de las misiones y las fotos, que eran del usuario anterior.
  */
 class MainActivity : FragmentActivity() {
 
@@ -50,6 +52,7 @@ class MainActivity : FragmentActivity() {
             dao = BaseDatos.obtener(applicationContext).misionDao(),
             fotos = AlmacenFotos(File(cacheDir, "fotos"))
         )
+        sesion.alDescartar = { repositorio.borrarDatosLocales() }
 
         setContent {
             AiQueTePilloTheme {

@@ -1,11 +1,13 @@
 package es.uma.aiquetepillo.datos
 
+import android.util.Log
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import es.uma.aiquetepillo.modelo.*
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Invocation
 import retrofit2.Retrofit
 import retrofit2.http.*
 import java.util.concurrent.TimeUnit
@@ -123,17 +125,24 @@ object ClienteRed {
     fun crear(): ApiServicio {
 
         /*
-         * El interceptor de registro imprime en logcat cada petición y cada
-         * respuesta. Con nivel BODY imprimía también cabeceras y cuerpos: la
-         * contraseña del acceso, el token, la cabecera Authorization, los
-         * selfies y fotos en base64 y el contenido de las misiones.
+         * Registro de la red. Con el HttpLoggingInterceptor en nivel BODY
+         * salían en logcat cabeceras y cuerpos: la contraseña del acceso, el
+         * token, la cabecera Authorization, los selfies y fotos en base64 y
+         * el contenido de las misiones. Ni siquiera el nivel BASIC basta,
+         * porque imprime la URL y en la ruta van el código de invitación de
+         * un grupo y los nombres de usuario de sus miembros.
          *
-         * Desde P3.1 está en BASIC: sólo método, URL, código de respuesta y
-         * tamaño del cuerpo. Sigue sirviendo para ver que hay tráfico, sin
-         * sacar ningún secreto.
+         * Desde P3.1 se registra solo el verbo HTTP, el nombre de la función
+         * de ApiServicio que hizo la llamada (Retrofit lo deja en la etiqueta
+         * Invocation de la petición) y el código de respuesta. Sigue sirviendo
+         * para ver qué tráfico hay, sin sacar ningún dato.
          */
-        val registro = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
+        val registro = Interceptor { cadena ->
+            val peticion = cadena.request()
+            val operacion = peticion.tag(Invocation::class.java)?.method()?.name ?: "?"
+            val respuesta = cadena.proceed(peticion)
+            Log.d("Red", "${peticion.method} $operacion -> ${respuesta.code}")
+            respuesta
         }
 
         /*

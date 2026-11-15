@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -197,36 +198,44 @@ fun PantallaCamara(
     }
 }
 
-/** Miniatura de una foto guardada, descifrada y reducida. */
+/**
+ * Miniatura de una foto guardada, descifrada y reducida.
+ *
+ * Descifrar es una operación del almacén del sistema, así que se hace fuera
+ * del hilo principal; mientras tanto no se dibuja nada.
+ */
 @Composable
 fun MiniaturaFoto(foto: Foto, modifier: Modifier = Modifier, descripcion: String = "Foto de la misión") {
-    val imagen = remember(foto.fichero.path, foto.version) {
-        cargarReducida(foto.fichero, ladoMaximo = 800)?.asImageBitmap()
+    val imagen by produceState<ImageBitmap?>(null, foto.fichero.path, foto.version) {
+        value = withContext(Dispatchers.IO) { cargarReducida(foto.fichero, ladoMaximo = 800)?.asImageBitmap() }
     }
-    if (imagen != null) {
-        Image(
-            bitmap = imagen,
-            contentDescription = descripcion,
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .clip(RoundedCornerShape(18.dp))
-                .border(3.dp, Tinta, RoundedCornerShape(18.dp))
-        )
-    }
+    val cargada = imagen ?: return
+    Image(
+        bitmap = cargada,
+        contentDescription = descripcion,
+        contentScale = ContentScale.Crop,
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .border(3.dp, Tinta, RoundedCornerShape(18.dp))
+    )
 }
 
 /** Círculo con el selfie del jugador o, si no lo tiene, con su inicial. */
 @Composable
 fun Avatar(nombre: String, selfie: Foto?, tamano: Dp) {
-    val imagen = remember(selfie?.fichero?.path, selfie?.version) {
-        selfie?.let { cargarReducida(it.fichero, ladoMaximo = 256)?.asImageBitmap() }
+    // Fuera del hilo principal, como en MiniaturaFoto; hasta entonces, la inicial
+    val imagen by produceState<ImageBitmap?>(null, selfie?.fichero?.path, selfie?.version) {
+        value = selfie?.let {
+            withContext(Dispatchers.IO) { cargarReducida(it.fichero, ladoMaximo = 256)?.asImageBitmap() }
+        }
     }
-    if (imagen == null) {
+    val cargada = imagen
+    if (cargada == null) {
         Medallon(nombre.firstOrNull()?.uppercase() ?: "?", tamano = tamano)
         return
     }
     Image(
-        bitmap = imagen,
+        bitmap = cargada,
         contentDescription = "Selfie de $nombre",
         contentScale = ContentScale.Crop,
         modifier = Modifier

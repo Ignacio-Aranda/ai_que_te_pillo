@@ -67,6 +67,13 @@ class SesionLocal(contexto: Context) {
     private val _estado = MutableStateFlow(estadoInicial())
     val estado: StateFlow<Estado> = _estado.asStateFlow()
 
+    /**
+     * Lo que hay que borrar, además de la sesión, cuando se descarta por
+     * irrecuperable. Lo fija MainActivity con la copia local de las misiones y
+     * las fotos, que esta clase no conoce.
+     */
+    var alDescartar: () -> Unit = {}
+
     private var tokenEnMemoria: String? = null
     private var usuarioEnMemoria: String? = null
     private var nombreEnMemoria: String? = null
@@ -125,13 +132,27 @@ class SesionLocal(contexto: Context) {
     fun cifradorParaAbrir(): Cipher =
         Cripto.cifradorParaDescifrar(preferencias.getString(CLAVE_DATOS, null)!!)
 
-    /** Termina de guardar con el cifrador que devuelve el diálogo, el único habilitado. */
-    fun completarGuardado(cifrador: Cipher) {
-        val token = tokenEnMemoria ?: return
+    /**
+     * Termina de guardar con el cifrador que devuelve el diálogo, el único
+     * habilitado.
+     *
+     * Devuelve false si el cifrado falla pese a la autenticación correcta. En
+     * ese caso se borra la clave, para que el siguiente intento cree una
+     * nueva, y la sesión sigue pendiente de guardar.
+     */
+    fun completarGuardado(cifrador: Cipher): Boolean {
+        val token = tokenEnMemoria ?: return false
         val claro = listOf(token, usuarioEnMemoria.orEmpty(), nombreEnMemoria.orEmpty())
             .joinToString(SEPARADOR_CAMPOS)
-        preferencias.edit().putString(CLAVE_DATOS, Cripto.empaquetar(cifrador, claro)).apply()
-        _estado.value = Estado.ABIERTA
+        return try {
+            preferencias.edit().putString(CLAVE_DATOS, Cripto.empaquetar(cifrador, claro)).apply()
+            _estado.value = Estado.ABIERTA
+            true
+        } catch (e: Exception) {
+            Log.w("SesionLocal", "No se ha podido cifrar la sesión: ${e.javaClass.simpleName}: ${e.message}")
+            runCatching { Cripto.borrarClave() }
+            false
+        }
     }
 
     /**
@@ -151,7 +172,7 @@ class SesionLocal(contexto: Context) {
             true
         } catch (e: Exception) {
             // Se registra QUE ha fallado y de qué tipo. Nunca el contenido.
-            Log.w("SesionLocal", "Sesión irrecuperable: ${e.javaClass.simpleName}")
+            Log.w("SesionLocal", "Sesión irrecuperable: ${e.javaClass.simpleName}: ${e.message}")
             descartarSesionIrrecuperable()
             false
         }
@@ -162,7 +183,9 @@ class SesionLocal(contexto: Context) {
      *
      * Se borran los datos cifrados, ilegibles para siempre, y la clave, que
      * puede estar invalidada: si se dejara, el siguiente inicio de sesión
-     * fallaría igual.
+     * fallaría igual. También se borran la copia local de las misiones y las
+     * fotos (alDescartar): eran del usuario anterior, y quien entre después
+     * puede ser otra persona.
      */
     fun descartarSesionIrrecuperable() {
         tokenEnMemoria = null
@@ -172,8 +195,9 @@ class SesionLocal(contexto: Context) {
         try {
             Cripto.borrarClave()
         } catch (e: Exception) {
-            Log.w("SesionLocal", "No se ha podido borrar la clave: ${e.javaClass.simpleName}")
+            Log.w("SesionLocal", "No se ha podido borrar la clave: ${e.javaClass.simpleName}: ${e.message}")
         }
+        alDescartar()
         _estado.value = Estado.SIN_SESION
     }
 

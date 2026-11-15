@@ -61,7 +61,8 @@ fun PuertaBiometrica(
     contenido: @Composable () -> Unit
 ) {
     val estado by sesion.estado.collectAsState()
-    var aviso by remember { mutableStateOf<String?>(null) }
+    // El aviso es de la pantalla en la que se produjo: al cambiar de estado se olvida
+    var aviso by remember(estado) { mutableStateOf<String?>(null) }
 
     when (estado) {
         // No hay nada guardado todavía: que pase y se identifique.
@@ -97,8 +98,8 @@ fun PuertaBiometrica(
                         subtitulo = "Tu sesión se guardará cifrada",
                         cifrador = cifrador,
                         onCorrecta = { autorizado ->
-                            sesion.completarGuardado(autorizado)
-                            aviso = null
+                            aviso = if (sesion.completarGuardado(autorizado)) null
+                            else "No se ha podido guardar la sesión cifrada. Inténtalo de nuevo."
                         },
                         onFallo = { mensaje -> aviso = mensaje }
                     )
