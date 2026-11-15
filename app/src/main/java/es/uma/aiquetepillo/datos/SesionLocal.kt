@@ -6,6 +6,7 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 
 /* ==========================================================================
@@ -158,8 +159,10 @@ class SesionLocal(contexto: Context) {
     /**
      * Termina de abrir con el cifrador que devuelve el diálogo.
      *
-     * Devuelve false si los datos ya no se pueden recuperar, y en ese caso los
-     * descarta: no hay nada que reintentar.
+     * Devuelve false si no se ha podido abrir. Solo descarta la sesión si la
+     * etiqueta de GCM no coincide (datos manipulados o cifrados con otra
+     * clave), porque entonces no hay nada que reintentar; ante cualquier otro
+     * fallo la deja guardada para un nuevo intento.
      */
     fun completarApertura(cifrador: Cipher): Boolean {
         val paquete = preferencias.getString(CLAVE_DATOS, null) ?: return false
@@ -172,8 +175,10 @@ class SesionLocal(contexto: Context) {
             true
         } catch (e: Exception) {
             // Se registra QUE ha fallado y de qué tipo. Nunca el contenido.
-            Log.w("SesionLocal", "Sesión irrecuperable: ${e.javaClass.simpleName}: ${e.message}")
-            descartarSesionIrrecuperable()
+            Log.w("SesionLocal", "No se ha abierto la sesión: ${e.javaClass.simpleName}: ${e.message}")
+            if (generateSequence<Throwable>(e) { it.cause }.any { it is AEADBadTagException }) {
+                descartarSesionIrrecuperable()
+            }
             false
         }
     }

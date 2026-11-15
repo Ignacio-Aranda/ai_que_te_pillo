@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -117,22 +118,27 @@ fun PuertaBiometrica(
             explicacion = "Usa tu huella para abrir la sesión guardada en este dispositivo.",
             textoBoton = "Desbloquear",
             aviso = aviso,
+            // Salida siempre disponible: un fallo que se repite no puede dejar al usuario atrapado aquí
+            textoSalida = "Cerrar sesión",
+            onSalir = { sesion.descartarSesionIrrecuperable() },
             onPulsar = {
                 /*
                  * Crear el cifrador puede fallar aquí mismo, antes de llegar
                  * al diálogo. Solo se descarta la sesión si el fallo es
                  * definitivo: la clave ha sido invalidada (se ha registrado
-                 * una huella nueva) o ya no existe (se ha retirado el bloqueo
-                 * de pantalla). Descartar borra también las misiones y las
-                 * fotos, así que ante cualquier otro fallo se avisa y se deja
-                 * reintentar.
+                 * una huella nueva), ya no existe (se ha retirado el bloqueo
+                 * de pantalla) o el paquete guardado está malformado.
+                 * Descartar borra también las misiones y las fotos, así que
+                 * ante cualquier otro fallo se avisa y se deja reintentar.
                  */
-                val existia = Cripto.existeClave()
+                val existia = runCatching { Cripto.existeClave() }.getOrDefault(true)
                 val cifrador = try {
                     sesion.cifradorParaAbrir()
                 } catch (e: Exception) {
                     Log.w("PuertaBiometrica", "No se ha abierto la sesión: ${e.javaClass.simpleName}: ${e.message}")
-                    if (e is KeyPermanentlyInvalidatedException || !existia) {
+                    val invalidada = generateSequence<Throwable>(e) { it.cause }
+                        .any { it is KeyPermanentlyInvalidatedException }
+                    if (invalidada || !existia || e is IllegalArgumentException) {
                         sesion.descartarSesionIrrecuperable()
                         aviso = "La sesión guardada ya no se puede recuperar. Vuelve a iniciar sesión."
                     } else {
@@ -147,11 +153,9 @@ fun PuertaBiometrica(
                         subtitulo = "Usa tu huella para acceder",
                         cifrador = cifrador,
                         onCorrecta = { autorizado ->
-                            if (sesion.completarApertura(autorizado)) {
-                                aviso = null
-                            } else {
-                                aviso = "La sesión guardada ya no se puede recuperar. Vuelve a iniciar sesión."
-                            }
+                            // Si la sesión era irrecuperable, completarApertura ya la ha descartado
+                            aviso = if (sesion.completarApertura(autorizado)) null
+                            else "No se ha podido abrir la sesión. Inténtalo de nuevo."
                         },
                         onFallo = { mensaje -> aviso = mensaje }
                     )
@@ -218,7 +222,9 @@ private fun PantallaDePuerta(
     explicacion: String,
     textoBoton: String,
     aviso: String?,
-    onPulsar: () -> Unit
+    onPulsar: () -> Unit,
+    textoSalida: String? = null,
+    onSalir: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -230,6 +236,9 @@ private fun PantallaDePuerta(
         Text(explicacion, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(24.dp))
         Button(onClick = onPulsar) { Text(textoBoton) }
+        if (textoSalida != null) {
+            TextButton(onClick = onSalir) { Text(textoSalida) }
+        }
 
         if (aviso != null) {
             Spacer(Modifier.height(16.dp))
