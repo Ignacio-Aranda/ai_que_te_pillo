@@ -71,7 +71,7 @@ Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y [uv](
 
    Sin este fichero el backend funciona en modo sin IA: misiones de una lista fija y fotos aceptadas sin comprobarlas.
 
-2. Poner en `backend/` el material criptográfico del laboratorio, que tampoco está en el repositorio: `ca.pem`, `cert.pem`, `clave.pem`, `cert_reserva.pem` y `clave_reserva.pem` (y `ca-clave.pem`, que solo hace falta para emitir certificados). Se comparten dentro del grupo, igual que `.env`. No hay que generarlos de nuevo con `generar_certificado.sh`: las claves nuevas no coincidirían con las ancladas en la aplicación y esta no podría conectar (ver [backend/LEEME.md](backend/LEEME.md)).
+2. Poner en `backend/` el material criptográfico del laboratorio, que tampoco está en el repositorio: `ca.pem`, `cert.pem`, `clave.pem`, `cert_reserva.pem` y `clave_reserva.pem` (y `ca-clave.pem`, que solo hace falta para emitir certificados). Se comparten dentro del grupo, igual que `.env`. Si se generasen con `generar_certificado.sh` sin las claves del grupo, saldrían claves nuevas que no coinciden con las ancladas en la aplicación, y esta no podría conectar (ver [backend/LEEME.md](backend/LEEME.md)).
 
 3. Arrancar el backend en el ordenador, en modo TLS:
 
@@ -91,7 +91,7 @@ Requisitos: Android Studio con el SDK de la plataforma 37 y un emulador, y [uv](
 
    Desde la línea de comandos, Gradle necesita saber dónde está el SDK: la variable `ANDROID_HOME` o un fichero `local.properties` con `sdk.dir=...` (Android Studio lo crea solo y está excluido del repositorio).
 
-   Desde el emulador, el backend está en `https://10.0.2.2:8443/`. Para un dispositivo físico haría falta la IP del ordenador en `ClienteRed.BASE_URL` (`ApiServicio.kt`), en el dominio de las dos configuraciones de red (`app/src/main/res/xml` y `app/src/debug/res/xml`) y en el certificado del backend, lo que obliga a emitirlo de nuevo y a actualizar el anclaje.
+   Desde el emulador, el backend está en `https://10.0.2.2:8443/`. Para un dispositivo físico haría falta la IP del ordenador en `ClienteRed.BASE_URL` (`ApiServicio.kt`), en el dominio de las dos configuraciones de red (`app/src/main/res/xml` y `app/src/debug/res/xml`) y en el certificado del backend, que se vuelve a emitir con `EXTRA=<IP> ./generar_certificado.sh`. El guion conserva las claves, así que el anclaje no cambia.
 
 ## Reconocimiento de una aplicación real (P2.1, sección 5.4)
 

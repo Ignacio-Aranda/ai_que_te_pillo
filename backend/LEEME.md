@@ -33,14 +33,15 @@ en modo TLS, que es el que espera la aplicación:
 Sin las variables `CERT` y `CLAVE` arranca en HTTP sin cifrar en el 8080
 (`uv run servidor.py`), útil para comparar los dos modos.
 
-Con Python y pip:
+Con Python y pip, con las mismas variables para el modo TLS:
 
     pip install openrouter
-    python3 servidor.py        # Linux y macOS
-    py servidor.py             # Windows
+    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem python3 servidor.py      # Linux y macOS
+    $env:PUERTO=8443; $env:CERT="cert.pem"; $env:CLAVE="clave.pem"; py servidor.py   # Windows
 
-Con Docker, también en modo TLS (`docker-compose.yml` monta `cert.pem` y
-`clave.pem` desde esta carpeta):
+Con Docker, también en modo TLS (`docker-compose.yml` monta esta carpeta en
+el contenedor, que lee de ella `cert.pem` y `clave.pem`; tienen que estar
+antes de arrancarlo):
 
     docker compose up --build
 
@@ -52,9 +53,7 @@ Comprobación:
 En PowerShell, `curl` es un alias de `Invoke-WebRequest` y no acepta las mismas
 opciones: hay que escribir `curl.exe`.
 
-Para cambiar el puerto:
-
-    PUERTO=9000 uv run servidor.py             # Linux y macOS
+Para cambiar el puerto, la variable `PUERTO` (la aplicación espera el 8443).
 
 ## Dirección desde el dispositivo
 
@@ -101,11 +100,11 @@ reiniciar el servidor.
 
 Ejemplo:
 
-    TOKEN=$(curl -s -X POST http://localhost:8080/api/login \
+    TOKEN=$(curl -s --cacert ca.pem -X POST https://localhost:8443/api/login \
       -H 'Content-Type: application/json' \
       -d '{"usuario":"ana","clave":"Practica2024"}' | grep -o '"token": "[^"]*' | cut -d'"' -f4)
 
-    curl http://localhost:8080/api/misiones -H "Authorization: Bearer $TOKEN"
+    curl --cacert ca.pem https://localhost:8443/api/misiones -H "Authorization: Bearer $TOKEN"
 
 ## Modo TLS (a partir de la práctica P3.2)
 
@@ -123,12 +122,16 @@ Los certificados valen para `api.local`, `localhost`, `127.0.0.1` y `10.0.2.2`.
 El guion imprime al terminar el resumen SHA-256 de la clave pública de los dos
 certificados, que es lo que la aplicación ancla en su configuración de red.
 
-**No se vuelve a ejecutar.** Cada ejecución emite dos claves nuevas que no
-coinciden con las ancladas, y la aplicación deja de conectar: falla con
-`Pin verification failed`. Las claves privadas no están en el repositorio
-(`.gitignore` excluye `backend/*.pem`) y se comparten dentro del grupo, igual
-que `.env`. Si hubiera que cambiarlas, se sigue el procedimiento de rotación
-del apartado 3.4 del documento de diseño de seguridad.
+**Las claves se conservan.** Si `clave.pem` o `clave_reserva.pem` ya existen,
+el guion vuelve a emitir el certificado con la misma clave, de modo que los
+resúmenes anclados no cambian: se puede ejecutar de nuevo, por ejemplo con otra
+IP en `EXTRA`. Solo se crea una clave nueva si se retira antes su fichero, y
+entonces la aplicación deja de aceptar ese certificado (`Pin verification
+failed`) hasta que una versión ancle la clave nueva. Para emitir una clave nueva
+sin tocar las actuales, el guion se ejecuta en una carpeta aparte que solo
+contenga `ca.pem` y `ca-clave.pem`. Es un paso del procedimiento de rotación del apartado 3.4 del documento de diseño de
+seguridad. Las claves privadas no están en el repositorio (`.gitignore`
+excluye `backend/*.pem`) y se comparten dentro del grupo, igual que `.env`.
 
 Para pasar a la clave de reserva sin publicar una versión de la aplicación:
 

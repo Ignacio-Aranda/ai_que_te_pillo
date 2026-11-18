@@ -6,8 +6,9 @@
      aquí hay que llevarlo también allí. -->
 <network-security-config>
 
-    <!-- Se aplica a todo el tráfico del proceso, incluido el de las bibliotecas:
-         nada de HTTP en claro y solo las autoridades del sistema. -->
+    <!-- Se aplica a todo el tráfico que pasa por la pila de red de la plataforma,
+         también el de las bibliotecas que la usan, como OkHttp: nada de HTTP en
+         claro y solo las autoridades del sistema. -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />

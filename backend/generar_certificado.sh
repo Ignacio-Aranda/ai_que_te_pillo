@@ -15,6 +15,12 @@
 # de confianza no cambia aunque se vuelvan a emitir los certificados, que es
 # exactamente como funciona en produccion.
 #
+# Las claves de los dos certificados tambien se reutilizan si ya existen: el
+# guion vuelve a emitir los certificados (por ejemplo, con otra IP en EXTRA)
+# sin cambiar las claves, y por tanto sin cambiar los resumenes que ancla la
+# aplicacion. Para emitir una clave NUEVA se retira antes su fichero
+# (clave.pem o clave_reserva.pem); es un paso del procedimiento de rotacion.
+#
 # Uso:   EXTRA=192.168.1.50 ./generar_certificado.sh
 #        EXTRA es la IP de vuestro ordenador en la red local.
 # ---------------------------------------------------------------------------
@@ -70,7 +76,12 @@ keyUsage = critical,digitalSignature,keyEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName = $SAN
 EOF
-    openssl req -newkey rsa:2048 -nodes -keyout "$2" -out .hoja.csr -config .hoja.cnf 2>/dev/null
+    if [ -f "$2" ]; then
+        # Clave existente: se conserva, y con ella el resumen anclado
+        openssl req -new -key "$2" -out .hoja.csr -config .hoja.cnf 2>/dev/null
+    else
+        openssl req -newkey rsa:2048 -nodes -keyout "$2" -out .hoja.csr -config .hoja.cnf 2>/dev/null
+    fi
     openssl x509 -req -in .hoja.csr -CA ca.pem -CAkey ca-clave.pem -CAcreateserial \
         -out .hoja.pem -days "$DIAS" -extfile .hoja.cnf -extensions v3_hoja 2>/dev/null
     cat .hoja.pem ca.pem > "$1"
