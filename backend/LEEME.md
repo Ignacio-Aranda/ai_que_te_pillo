@@ -128,10 +128,12 @@ resúmenes anclados no cambian: se puede ejecutar de nuevo, por ejemplo con otra
 IP en `EXTRA`. Solo se crea una clave nueva si se retira antes su fichero, y
 entonces la aplicación deja de aceptar ese certificado (`Pin verification
 failed`) hasta que una versión ancle la clave nueva. Para emitir una clave nueva
-sin tocar las actuales, el guion se ejecuta en una carpeta aparte que solo
-contenga `ca.pem` y `ca-clave.pem`. Es un paso del procedimiento de rotación del apartado 3.4 del documento de diseño de
-seguridad. Las claves privadas no están en el repositorio (`.gitignore`
-excluye `backend/*.pem`) y se comparten dentro del grupo, igual que `.env`.
+sin tocar las actuales, el guion se ejecuta en una carpeta fuera del
+repositorio que solo contenga `ca.pem` y `ca-clave.pem`. Emitir una clave nueva
+es un paso del procedimiento de rotación del apartado 3.4 del documento de
+diseño de seguridad. Las claves privadas no están en el repositorio
+(`.gitignore` excluye los `.pem` de `backend/`) y se comparten dentro del
+grupo, igual que `.env`.
 
 Para pasar a la clave de reserva sin publicar una versión de la aplicación:
 

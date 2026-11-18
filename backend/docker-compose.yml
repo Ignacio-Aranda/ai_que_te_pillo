@@ -5,7 +5,8 @@ services:
     # Modo TLS, el que espera la aplicación desde P3.2. El certificado y su
     # clave no están en el repositorio: se reciben del grupo (o se generan con
     # generar_certificado.sh) y se leen de esta carpeta, montada en solo
-    # lectura. Si faltan, el servidor no arranca.
+    # lectura. Si faltan, el servidor falla al arrancar y el contenedor se
+    # reinicia sin llegar a servir.
     environment:
       PUERTO: "8443"
       CERT: /certificados/cert.pem
