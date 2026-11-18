@@ -28,3 +28,10 @@ google-services.json
 
 # --- Logs ---
 *.log
+
+# --- Material criptográfico del backend (generar_certificado.sh) ---
+# Las claves privadas no se suben nunca. Los certificados tampoco: sin su clave
+# no sirven, y la autoridad que necesita la aplicación ya está copiada en
+# app/src/debug/res/raw/cert_laboratorio.pem.
+backend/*.pem
+backend/*.srl

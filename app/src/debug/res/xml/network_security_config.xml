@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Política de red de la variante de DEPURACIÓN (P3.2).
+
+     Sustituye a app/src/main/res/xml/network_security_config.xml en las
+     compilaciones de depuración. Es el mismo fichero más el bloque
+     debug-overrides del final; cualquier cambio en el resto hay que llevarlo
+     también al de main. El certificado del laboratorio vive en src/debug, así
+     que la variante de publicación no lo lleva. -->
+<network-security-config>
+
+    <!-- Se aplica a todo el tráfico del proceso, incluido el de las bibliotecas:
+         nada de HTTP en claro y solo las autoridades del sistema. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- El backend. Hereda las anclas de base-config y además exige que la clave
+         pública del servidor sea una de las dos ancladas. 10.0.2.2 es el
+         anfitrión visto desde el emulador; en producción iría aquí el dominio
+         del servidor. -->
+    <domain-config>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+
+        <!-- Resumen SHA-256 de la clave pública (SubjectPublicKeyInfo), en base64,
+             tal como lo imprime backend/generar_certificado.sh. No es la huella
+             del certificado: sobrevive a una renovación que conserve la clave.
+
+             Pasada la caducidad, el anclaje deja de aplicarse y la conexión se
+             valida solo contra las anclas de confianza: la aplicación no se queda
+             sin servicio, pero pierde esta protección. Cubre el curso completo. -->
+        <pin-set expiration="2027-06-30">
+            <!-- Clave del certificado que sirve el backend (cert.pem) -->
+            <pin digest="SHA-256">aicFsxfroGSeB8xQR7dCPWuAo7Cpa/Ncb6cvJ6uPz6s=</pin>
+            <!-- Clave de reserva (cert_reserva.pem), firmada por la misma autoridad.
+                 Permite cambiar de clave en el servidor sin publicar una versión. -->
+            <pin digest="SHA-256">SSWWqbgVUkm3hXsnFxDQpeMRpEMDe8FtGVcpWV2mBs4=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Excepciones de desarrollo. El sistema solo aplica este bloque si la
+         aplicación es depurable; en la variante de publicación se ignora.
+         Sus anclas se suman a las demás, también a las del dominio del backend. -->
+    <debug-overrides>
+        <trust-anchors>
+            <!-- La autoridad del laboratorio, que firma el certificado del backend.
+                 Las anclas de este bloque desactivan por omisión el anclaje para
+                 las cadenas que terminan en ellas; overridePins="false" lo
+                 mantiene, de modo que el anclaje se comprueba contra el backend
+                 también mientras se desarrolla. -->
+            <certificates src="@raw/cert_laboratorio" overridePins="false" />
+
+            <!-- El almacén del usuario, para poder inspeccionar el tráfico propio
+                 con un proxy de intercepción. Las cadenas que terminan aquí no se
+                 comprueban contra el anclaje. -->
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+
+</network-security-config>

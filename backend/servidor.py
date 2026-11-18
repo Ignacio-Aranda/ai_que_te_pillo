@@ -6,15 +6,16 @@
 """
 Backend común de la asignatura Seguridad en Entornos Móviles.
 
-API REST mínima para las prácticas del Bloque II. Se sirve por HTTP sin cifrar
-de forma deliberada: en la práctica P3.2 se comparará este tráfico con el de la
-misma aplicación una vez aplicado TLS y anclaje de certificados.
+API REST mínima para las prácticas del Bloque II. Sin certificado se sirve por
+HTTP sin cifrar, el punto de partida de la práctica P3.2. Desde esa práctica la
+aplicación solo habla con él en modo TLS, con el certificado que emite
+generar_certificado.sh (ver LEEME.md).
 
 La única dependencia externa es el SDK de OpenRouter, con el que se generan
 las misiones y se comprueban las fotos. uv la instala sola al arrancar:
 
-    uv run servidor.py             # escucha en 0.0.0.0:8080
-    PUERTO=9000 uv run servidor.py
+    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem uv run servidor.py   # TLS
+    uv run servidor.py             # HTTP sin cifrar en 0.0.0.0:8080
 
 La clave de OpenRouter se lee de la variable OPENROUTER_API_KEY o del fichero
 backend/.env, que está excluido del repositorio. Sin clave, el servidor
