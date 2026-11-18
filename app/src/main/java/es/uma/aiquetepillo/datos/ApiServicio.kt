@@ -10,15 +10,16 @@ import okhttp3.OkHttpClient
 import retrofit2.Invocation
 import retrofit2.Retrofit
 import retrofit2.http.*
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /* ==========================================================================
    EL ACCESO AL BACKEND
    Teoría: sesión 2.5.5 (red) y 2.4.5 (corrutinas).
 
-   AVISO: el backend sirve por HTTP SIN CIFRAR. Es deliberado: en la práctica
-   P3.2 interceptarás este tráfico con un proxy y después aplicarás TLS y
-   anclaje de certificados para ver la diferencia con tus propios ojos.
+   Desde P3.2 el backend sirve por TLS. La política de red (tráfico en claro
+   prohibido, anclas de confianza y anclaje de la clave del servidor) está
+   declarada en res/xml/network_security_config.xml, no en este fichero.
    ========================================================================== */
 
 /**
@@ -108,19 +109,19 @@ interface ApiServicio {
 object ClienteRed {
 
     /**
-     * Dirección del backend.
-     *
-     *   Emulador de Android            http://10.0.2.2:8080/
-     *   Dispositivo físico en tu red   http://<IP_de_tu_ordenador>:8080/
+     * Dirección del backend, servido por TLS en el puerto 8443.
      *
      * El emulador tiene su propia interfaz de red: dentro de él, localhost es
-     * el propio emulador y no tu ordenador. De ahí el 10.0.2.2.
+     * el propio emulador y no tu ordenador. De ahí el 10.0.2.2. Para un
+     * dispositivo físico haría falta la IP del ordenador aquí, en el
+     * certificado del backend (EXTRA=<IP> ./generar_certificado.sh) y en el
+     * dominio de network_security_config.xml, en sus dos variantes.
      *
      * PARA EL CUADERNO: esta dirección queda escrita en el artefacto y se
      * recupera decompilándolo, tal como comprobaste en la práctica P2.1.
      * ¿Es eso un problema? ¿Y si en lugar de una dirección fuera una clave?
      */
-    const val BASE_URL = "http://10.0.2.2:8080/"
+    const val BASE_URL = "https://10.0.2.2:8443/"
 
     fun crear(): ApiServicio {
 
@@ -136,19 +137,32 @@ object ClienteRed {
          * de ApiServicio que hizo la llamada (Retrofit lo deja en la etiqueta
          * Invocation de la petición) y el código de respuesta. Sigue sirviendo
          * para ver qué tráfico hay, sin sacar ningún dato.
+         *
+         * Si la llamada no llega a tener respuesta, se registra el tipo y el
+         * mensaje de la excepción: desde P3.2 es la única forma de distinguir
+         * un rechazo del anclaje («Pin verification failed») o de la cadena de
+         * confianza de un fallo de red, porque la pantalla muestra en todos los
+         * casos el mismo mensaje genérico.
          */
         val registro = Interceptor { cadena ->
             val peticion = cadena.request()
             val operacion = peticion.tag(Invocation::class.java)?.method()?.name ?: "?"
-            val respuesta = cadena.proceed(peticion)
+            val respuesta = try {
+                cadena.proceed(peticion)
+            } catch (e: IOException) {
+                Log.w("Red", "${peticion.method} $operacion -> ${e.javaClass.simpleName}: ${e.message}")
+                throw e
+            }
             Log.d("Red", "${peticion.method} $operacion -> ${respuesta.code}")
             respuesta
         }
 
         /*
          * El cliente HTTP se construye UNA VEZ y lo hereda toda la aplicación.
-         * Es la idea de la sesión 2.5.4: cuando en P3.2 se añada el anclaje de
-         * certificados se tocará sólo aquí, y ninguna pantalla se entera.
+         * Es la idea de la sesión 2.5.4: cualquier cambio en el cliente HTTP
+         * se hace sólo aquí, y ninguna pantalla se entera. El anclaje de
+         * certificados de P3.2 no pasa por aquí: lo aplica la plataforma a
+         * partir de la configuración de red declarada en el manifiesto.
          */
         val cliente = OkHttpClient.Builder()
             .addInterceptor(registro)

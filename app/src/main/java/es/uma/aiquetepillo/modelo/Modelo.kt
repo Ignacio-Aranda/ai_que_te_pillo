@@ -20,7 +20,8 @@ data class PeticionLogin(
 
 /**
  * Petición de POST /api/registro. El selfie va en Base64 dentro del JSON: es
- * un dato biométrico y viaja igual que el resto, en claro por HTTP.
+ * un dato biométrico y viaja igual que el resto, por HTTPS con la clave del
+ * servidor anclada (P3.2).
  */
 @Serializable
 data class PeticionRegistro(

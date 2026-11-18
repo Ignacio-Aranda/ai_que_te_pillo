@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Política de red de la aplicación (P3.2). Es la de la variante de publicación.
+
+     La variante de depuración usa app/src/debug/res/xml/network_security_config.xml,
+     que repite este fichero y añade el bloque debug-overrides. Cualquier cambio
+     aquí hay que llevarlo también allí. -->
+<network-security-config>
+
+    <!-- Se aplica a todo el tráfico que pasa por la pila de red de la plataforma,
+         también el de las bibliotecas que la usan, como OkHttp: nada de HTTP en
+         claro y solo las autoridades del sistema. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- El backend. Hereda las anclas de base-config y además exige que la clave
+         pública del servidor sea una de las dos ancladas. 10.0.2.2 es el
+         anfitrión visto desde el emulador; en producción iría aquí el dominio
+         del servidor. -->
+    <domain-config>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+
+        <!-- Resumen SHA-256 de la clave pública (SubjectPublicKeyInfo), en base64,
+             tal como lo imprime backend/generar_certificado.sh. No es la huella
+             del certificado: sobrevive a una renovación que conserve la clave.
+
+             Pasada la caducidad, el anclaje deja de aplicarse y la conexión se
+             valida solo contra las anclas de confianza: la aplicación no se queda
+             sin servicio, pero pierde esta protección. Cubre el curso completo. -->
+        <pin-set expiration="2027-06-30">
+            <!-- Clave del certificado que sirve el backend (cert.pem) -->
+            <pin digest="SHA-256">aicFsxfroGSeB8xQR7dCPWuAo7Cpa/Ncb6cvJ6uPz6s=</pin>
+            <!-- Clave de reserva (cert_reserva.pem), firmada por la misma autoridad.
+                 Permite cambiar de clave en el servidor sin publicar una versión. -->
+            <pin digest="SHA-256">SSWWqbgVUkm3hXsnFxDQpeMRpEMDe8FtGVcpWV2mBs4=</pin>
+        </pin-set>
+    </domain-config>
+
+</network-security-config>

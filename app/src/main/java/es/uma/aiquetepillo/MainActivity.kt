@@ -20,8 +20,9 @@ import java.io.File
  * Las dependencias se construyen aquí a mano. En un proyecto real se usaría
  * inyección de dependencias (sesión 2.5.4); lo importante es la idea: el
  * cliente de red y el almacén se configuran UNA VEZ y toda la aplicación los
- * hereda. Cuando en la práctica P3.2 se añada anclaje de certificados, se
- * tocará sólo ClienteRed y no habrá que revisar ninguna pantalla.
+ * hereda. El anclaje de certificados de P3.2 ni siquiera pasa por ClienteRed:
+ * lo aplica la plataforma a partir de la configuración de red declarada en el
+ * manifiesto, sin que ninguna pantalla se entere.
  *
  * Desde P3.1:
  * - Es una FragmentActivity porque lo exige el diálogo biométrico, que se

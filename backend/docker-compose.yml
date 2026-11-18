@@ -2,8 +2,19 @@ services:
   backend:
     build: .
     container_name: sem-backend
+    # Modo TLS, el que espera la aplicación desde P3.2. El certificado y su
+    # clave no están en el repositorio: se reciben del grupo (o se generan con
+    # generar_certificado.sh) y se leen de esta carpeta, montada en solo
+    # lectura. Si faltan, el servidor falla al arrancar y el contenedor se
+    # reinicia sin llegar a servir.
+    environment:
+      PUERTO: "8443"
+      CERT: /certificados/cert.pem
+      CLAVE: /certificados/clave.pem
+    volumes:
+      - ./:/certificados:ro
     ports:
-      - "8080:8080"
+      - "8443:8443"
     # La clave de OpenRouter, si existe el fichero (no está en el repositorio)
     env_file:
       - path: .env
