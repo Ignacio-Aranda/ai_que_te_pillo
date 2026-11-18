@@ -1,13 +1,13 @@
 # Documento de diseño de seguridad
 
 **AI que te pillo** · Grupo L · Seguridad en Entornos Móviles, curso 2026/27 · Bloque III
-Borrador iniciado en P3.1 · 10 de noviembre de 2026
+Iniciado en P3.1 (10 de noviembre de 2026) · apartado 3 completado en P3.2 (18 de noviembre de 2026)
 
 Este documento describe cómo protege la aplicación los datos que maneja y qué ha decidido no proteger. Parte del [documento de alcance del Bloque II](../v1/documento_alcance.md) y se completa a lo largo del Bloque III: el apartado 2 corresponde a P3.1, el 3 a P3.2 y el 4 a P3.3.
 
 ## 1. La aplicación y su modelo de amenazas
 
-*AI que te pillo* es un juego para grupos de amigos. Cada jugador recibe misiones generadas por un modelo de IA, del tipo «pilla a Luis bebiendo agua», y las completa con una foto que el mismo modelo compara con el selfie que el objetivo se hizo al registrarse. La aplicación habla con un backend propio por HTTP; el backend guarda usuarios, grupos y misiones y es el único que conoce la clave del proveedor de IA.
+*AI que te pillo* es un juego para grupos de amigos. Cada jugador recibe misiones generadas por un modelo de IA, del tipo «pilla a Luis bebiendo agua», y las completa con una foto que el mismo modelo compara con el selfie que el objetivo se hizo al registrarse. La aplicación habla con un backend propio por HTTPS; el backend guarda usuarios, grupos y misiones y es el único que conoce la clave del proveedor de IA.
 
 Los activos, por orden de gravedad, son las fotos de personas (el selfie de registro es un dato biométrico, art. 9 del RGPD, y las fotos de las misiones pueden mostrar a alguien en situaciones comprometidas), la sesión del usuario, que permite jugar y ver los grupos en su nombre, la contraseña, y el contenido de las misiones, que nombra a personas reales.
 
@@ -68,7 +68,7 @@ Mientras la sesión está bloqueada no se compone ninguna pantalla de la aplicac
 
 La línea que registraba la respuesta de acceso completa, con el token, solo indica ahora que el acceso ha sido correcto. El interceptor de registro de OkHttp en nivel `BODY` se sustituye por uno propio que escribe el verbo HTTP, el nombre de la operación de la API y el código de respuesta, por ejemplo `GET grupos -> 200`. El nivel `BASIC` del interceptor estándar no es suficiente, porque imprime la URL completa y en la ruta viajan el código de invitación de un grupo (`api/invitaciones/{codigo}`) y los nombres de usuario de los miembros (`api/usuarios/{usuario}/selfie`).
 
-Con ello dejan de aparecer en logcat la contraseña, el token, la cabecera `Authorization`, los selfies y fotos en base64, el contenido de misiones y grupos, los códigos de invitación y los nombres de usuario. Los fallos de las operaciones criptográficas, de la descarga de selfies y del guardado de fotos registran el tipo y el mensaje de la excepción, que no contienen datos del usuario.
+Con ello dejan de aparecer en logcat la contraseña, el token, la cabecera `Authorization`, los selfies y fotos en base64, el contenido de misiones y grupos, los códigos de invitación y los nombres de usuario. Los fallos de las operaciones criptográficas, de la descarga de selfies, del guardado de fotos y, desde P3.2, de las llamadas de red registran el tipo y el mensaje de la excepción, que no contienen datos del usuario.
 
 ### 2.6 Qué queda fuera
 
@@ -83,9 +83,11 @@ Con ello dejan de aparecer en logcat la contraseña, el token, la cabecera `Auth
 | Reversión de `sesion.xml` | Una copia anterior del fichero, del mismo terminal, se descifra sin error | GCM detecta la modificación, no la reversión. Solo devuelve una sesión que el usuario ya tuvo |
 | Copia de seguridad | `allowBackup="true"` con reglas vacías: la copia incluye la base de datos en claro y `sesion.xml` cifrado. La caché, donde están las fotos, no se copia. La clave no sale del almacén, así que `sesion.xml` no se puede descifrar al restaurarlo en otro terminal | Se trata en P3.3 |
 | Estructura de `sesion.xml` y de `cache/fotos` | Se ve que existe una sesión guardada, cuántas fotos hay, de qué misiones y de qué usuarios, y su tamaño aproximado | El cifrado protege el contenido, no los nombres ni la existencia de los ficheros |
-| Registros de red | Verbo, operación y código de cada llamada | Permiten saber qué hace el usuario y cuándo, pero no con qué datos. El registro no depende todavía del tipo de compilación (P3.3) |
+| Registros de red | Verbo, operación y código de cada llamada, o el tipo y el mensaje de la excepción si falla | Permiten saber qué hace el usuario y cuándo, pero no con qué datos. El registro no depende todavía del tipo de compilación (P3.3) |
 
 ### 2.7 Antes y después de P3.1
+
+La tabla refleja el estado al terminar P3.1. Lo relativo al tránsito por HTTP se cierra en P3.2 (apartado 3).
 
 | Dato | Antes de P3.1 | Después de P3.1 | Qué sigue sin proteger |
 |---|---|---|---|
@@ -98,7 +100,69 @@ Con ello dejan de aparecer en logcat la contraseña, el token, la cabecera `Auth
 
 ## 3. Datos en tránsito
 
-Se completa en P3.2. Hoy la aplicación habla con el backend por HTTP en claro (`usesCleartextTraffic="true"`), de modo que el token, la contraseña, los selfies y las fotos viajan legibles. El apartado recogerá la configuración de seguridad de red, el certificado del backend, el anclaje de certificados y cómo se renueva.
+### 3.1 Política de red declarada
+
+La política de red está declarada en `res/xml/network_security_config.xml` y referenciada desde el manifiesto con `android:networkSecurityConfig`. El atributo `usesCleartextTraffic` se ha retirado: cuando hay una configuración declarada, el sistema lo ignora, y mantenerlo dejaría un control aparente que no controla nada. La política la aplica la plataforma a todo el tráfico del proceso, incluido el de las bibliotecas, antes de abrir la conexión.
+
+| Elemento | Variante de publicación | Variante de depuración |
+|---|---|---|
+| Tráfico en claro | Prohibido para cualquier destino (`cleartextTrafficPermitted="false"`) | Igual |
+| Anclas de confianza | Solo las autoridades del sistema | Las del sistema, la autoridad del laboratorio y el almacén del usuario, en el bloque `debug-overrides` |
+| Anclaje del backend (`10.0.2.2`) | Resumen SHA-256 de la clave pública del certificado en uso y del de reserva, con caducidad el 30 de junio de 2027 | El mismo, que se comprueba también para las cadenas firmadas por la autoridad del laboratorio. Las que terminan en el almacén del usuario quedan exentas |
+
+Las excepciones de desarrollo están separadas en dos niveles. El sistema solo aplica el bloque `debug-overrides` cuando la aplicación es depurable. Además, la configuración que contiene ese bloque y el certificado de la autoridad del laboratorio están en el conjunto de fuentes `src/debug`, que sustituye al fichero de `src/main` solo en las compilaciones de depuración: la variante de publicación no lleva ni el bloque ni el certificado. Se ha comprobado sobre los dos APK con `aapt2 dump`. El coste es que la parte común de la configuración está escrita dos veces y cada cambio debe llevarse a los dos ficheros, como indican sus comentarios.
+
+Las dos excepciones de depuración se comportan de forma distinta frente al anclaje. Las anclas de `debug-overrides` desactivan por omisión el anclaje para las cadenas que terminan en ellas. Para la autoridad del laboratorio se anula ese efecto (`overridePins="false"`), de modo que un cambio de clave en el backend que no se haya llevado al anclaje se detecta durante el desarrollo y no después de publicar. El almacén del usuario conserva el comportamiento por omisión, para que quien desarrolla pueda inspeccionar su propio tráfico con un proxy de intercepción.
+
+El backend sirve por TLS 1.2 o superior en el puerto 8443. El guion `backend/generar_certificado.sh` crea una autoridad de laboratorio y dos certificados de servidor firmados por ella, el que se sirve y el de reserva, válidos para `10.0.2.2`, `127.0.0.1`, `localhost` y `api.local`. Las claves privadas no están en el repositorio y se distribuyen entre los miembros del grupo por fuera de él, igual que la clave del proveedor de IA. Volver a ejecutar el guion emite dos claves nuevas que no figuran en el anclaje y deja sin conexión a todas las versiones instaladas, por lo que solo se ejecuta como parte del procedimiento de rotación.
+
+Los fallos de conexión se registran en logcat con el tipo y el mensaje de la excepción, por ejemplo `POST login -> SSLHandshakeException: Pin verification failed`. La pantalla muestra en todos los casos el mismo mensaje genérico, de modo que el registro es la única forma de distinguir un rechazo del anclaje de un fallo de red.
+
+### 3.2 Comprobación
+
+Se ha comprobado en el emulador, con mitmproxy como proxy de intercepción y su autoridad instalada en el almacén del usuario:
+
+| Variante y situación | Resultado |
+|---|---|
+| Depuración, sin proxy | Acceso, grupos y misiones funcionan por HTTPS |
+| Depuración, con proxy | El proxy lee el tráfico: es la excepción de depuración del almacén del usuario |
+| Depuración, backend con el certificado de reserva | Funciona: la clave de reserva está anclada |
+| Depuración, backend con otro certificado firmado por la autoridad del laboratorio | `Pin verification failed`: el anclaje se sigue aplicando a la autoridad del laboratorio |
+| Publicación, con proxy | `Trust anchor for certification path not found`: la aplicación rechaza el certificado del proxy y este no recibe ninguna petición |
+| Publicación, sin proxy | El mismo error, porque la variante de publicación no confía en la autoridad del laboratorio. Solo puede conectar con un backend cuyo certificado emita una autoridad del sistema y cuya clave esté anclada |
+
+En la variante de publicación, lo que detiene al proxy es que su autoridad no está entre las anclas. El anclaje es la segunda barrera, frente a un certificado que sí emita una autoridad de confianza, y su efecto es el de la cuarta fila.
+
+### 3.3 Decisión sobre el anclaje en producción
+
+El grupo aplicaría anclaje de certificados en la versión de producción. Por el canal viajan contraseñas, el token de sesión y, sobre todo, fotografías del rostro de los jugadores, que el servidor usa para identificarlos en las misiones, y fotos que pueden mostrar a alguien en una situación comprometida. El certificado del servidor lo administraría el responsable del backend y procedería de Let's Encrypt, cuyos certificados tienen una vida corta y se renuevan automáticamente. Anclar el certificado o una autoridad intermedia obligaría a publicar una versión en cada renovación o cada vez que la autoridad cambie de intermedia, así que se anclaría la clave pública del servidor, conservada en las renovaciones, junto con una clave de reserva generada y guardada fuera del servidor. Publicar una versión de emergencia supone días de revisión en la tienda, y una parte de los jugadores abre la aplicación solo cuando hay partida, a veces con semanas de diferencia. Por eso el anclaje lleva una caducidad que se amplía en cada versión y nunca queda a menos de tres meses de la fecha de publicación: si la rotación falla, quien no haya actualizado recupera el servicio, sin anclaje, al llegar esa fecha.
+
+### 3.4 Procedimiento de rotación
+
+| | |
+|---|---|
+| Dominio anclado | `10.0.2.2` en el laboratorio; en producción, el dominio del servidor |
+| Caducidad del anclaje | 30 de junio de 2027, para cubrir el curso y la auditoría del Bloque IV |
+| Responsable del certificado | El responsable del backend (José Ignacio Aranda, según el reparto de trabajo) |
+| Responsable de la publicación | Quien publique cada versión de la aplicación |
+
+1. **Antelación.** La versión publicada ancla la clave en uso (A) y la de reserva (B). Pasar de A a B no exige publicar nada: en el laboratorio basta con arrancar el backend con `CERT=cert_reserva.pem CLAVE=clave_reserva.pem`. Por eso B permite reaccionar en minutos si A se ve comprometida. Tras el cambio, la aplicación se queda sin reserva, así que la rotación planificada empieza el día T−45: se emite un nuevo par C, firmado por la misma autoridad y sin volver a emitir A ni B, y se publica una versión que ancla A, B y C y amplía la caducidad. Se cuentan 7 días para la revisión de la tienda, 30 para que la nueva versión alcance al 95 % de los usuarios activos y 8 de margen. El servidor pasa a B en T, solo cuando se alcanza ese umbral.
+2. **Quién avisa a quién.** En T−45 el responsable del backend abre una incidencia en el repositorio del grupo con el resumen de la clave C, y el responsable de la publicación la cierra indicando el número de versión que la incluye. En T−1 el responsable del backend anuncia el cambio en la misma incidencia, y el de la publicación confirma en ella que se ha alcanzado el umbral. Sin esa confirmación no se cambia la clave.
+3. **Usuarios que no actualizan.** En el paso a B no pierden el servicio, porque su versión ya ancla B. Lo que pierden es la reserva: si B tuviera que cambiar antes de que actualicen, el siguiente cambio les haría fallar con `Pin verification failed`, y solo verían el mensaje genérico de conexión. Serían alrededor del 5 % de los usuarios activos en T, según la estimación anterior. Recuperan el servicio al actualizar o cuando caduque su anclaje.
+4. **Detección.** El backend tendría que registrar por hora los accesos correctos y los saludos TLS que el cliente aborta; hoy no registra lo segundo. Si en la hora siguiente a T los accesos caen más de un 20 % respecto a la misma hora de la semana anterior, o los saludos abortados superan el 1 % de las conexiones, el despliegue se da por erróneo (por ejemplo, un certificado emitido con una clave no anclada) y se vuelve a la clave anterior, que se conserva durante 7 días, en menos de 15 minutos.
+5. **Caducidad sin intervención.** Una vez alcanzada la fecha declarada, el sistema deja de aplicar el anclaje y la conexión se valida solo contra las anclas de confianza: las del sistema en la variante de publicación, y además la autoridad del laboratorio y el almacén del usuario en la de depuración. La aplicación no deja de funcionar, pero pierde el anclaje sin que nadie lo advierta.
+
+### 3.5 Lo que el canal no protege
+
+| Qué | Por qué |
+|---|---|
+| Frente a quien controla el dispositivo | Puede descompilar la aplicación, retirar el anclaje, añadir su propia autoridad y volver a firmarla, o instrumentar el proceso para que acepte cualquier certificado. También puede leer los datos en memoria antes de cifrarlos. El anclaje solo encarece ese análisis |
+| La variante de depuración | Confía en el almacén del usuario, de modo que quien instale una autoridad en el terminal lee todo el tráfico. Es la variante que se instala con `adb` y la que se entrega para la auditoría del Bloque IV (apartado 5) |
+| La autorización del servidor | El canal cifrado llega a un servidor que acepta un token predecible (base64 de `usuario:segundo de emisión`), sin caducidad ni revocación; que no limita los intentos de acceso ni los de los códigos de invitación; y que entrega la misión de otro usuario a quien pida su id. Nada de eso cambia con TLS: se aborda en el Bloque IV |
+| Los datos en el servidor | Contraseñas, selfies y grupos están en claro en la memoria del backend. TLS protege el trayecto, no el destino |
+| El tramo hacia el proveedor de IA | El backend reenvía las fotos y los selfies a OpenRouter por su propia conexión TLS, fuera de esta configuración. Es un tercero que recibe datos biométricos |
+| Los metadatos | Quien observa la red ve la dirección y el puerto del backend, la versión de TLS, los instantes y el tamaño de cada conexión. El envío de una foto, de cientos de kilobytes, se distingue del resto de llamadas. Con un nombre de dominio se añadirían la consulta DNS y el nombre del servidor (SNI) |
+| El certificado del laboratorio | La autoridad que firma el certificado del backend es del laboratorio, de modo que la variante de publicación no puede conectar con él. En producción harían falta un dominio, un certificado de una autoridad pública y el anclaje de sus claves |
 
 ## 4. Superficie y endurecimiento
 
@@ -115,3 +179,7 @@ Se completa en P3.3. Partirá del inventario de superficie del documento de alca
 **Token predecible.** El servidor emite como token el base64 de `usuario:segundo de emisión`. Cifrar `sesion.xml` no impide que quien tenga los ficheros lo reconstruya, porque el usuario está en claro en Room y el momento de emisión se acota con la fecha de modificación del fichero. La corrección corresponde al servidor, que debe emitir tokens aleatorios y permitir revocarlos, y se aborda con la autorización en el Bloque IV.
 
 **Copia de seguridad.** Hasta que P3.3 restrinja la copia de seguridad, la base de datos en claro forma parte de ella.
+
+**Variante de depuración interceptable.** La variante de depuración confía en el almacén del usuario para poder inspeccionar el tráfico durante el desarrollo, y es la que se instala con `adb` y la que se audita en el Bloque IV. Quien la tenga y controle el terminal puede leer su tráfico instalando una autoridad propia, sin modificar la aplicación. Se asume porque la variante de publicación no incluye esa excepción. Si la auditoría debe evaluar el canal tal como llegaría a los usuarios, ha de hacerse sobre la variante de publicación.
+
+**Certificado del laboratorio.** El backend presenta un certificado de una autoridad de laboratorio que solo la variante de depuración reconoce, y el anclaje se refiere a claves de ese laboratorio. La variante de publicación es correcta para un servidor real, pero no conecta con el del laboratorio. Se asume mientras el backend no tenga dominio ni certificado de una autoridad pública.

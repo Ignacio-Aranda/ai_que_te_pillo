@@ -3,8 +3,9 @@
 Parte del backend común de la asignatura, ampliado para el juego: registro con
 selfie, grupos con código de invitación, partidas con misiones generadas por IA,
 verificación de las fotos y clasificación. Los elementos del proyecto base son
-ahora misiones (`/api/misiones`). Sirve por **HTTP sin cifrar** de forma deliberada: en la práctica P3.2 se comparará este tráfico con el de la
-misma aplicación tras aplicar TLS y anclaje de certificados.
+ahora misiones (`/api/misiones`). Sin certificado arranca en **HTTP sin cifrar**,
+el punto de partida de la práctica P3.2; desde esa práctica la aplicación solo
+habla con él en **modo TLS**, en el puerto 8443 (ver más abajo).
 
 ## Requisitos
 
@@ -24,9 +25,13 @@ lista fija y las fotos se aceptan sin comprobarlas.
 
 ## Puesta en marcha
 
-Con uv, que instala el SDK la primera vez (lo declara la cabecera del script):
+Con uv, que instala el SDK la primera vez (lo declara la cabecera del script),
+en modo TLS, que es el que espera la aplicación:
 
-    uv run servidor.py
+    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem uv run servidor.py
+
+Sin las variables `CERT` y `CLAVE` arranca en HTTP sin cifrar en el 8080
+(`uv run servidor.py`), útil para comparar los dos modos.
 
 Con Python y pip:
 
@@ -34,14 +39,15 @@ Con Python y pip:
     python3 servidor.py        # Linux y macOS
     py servidor.py             # Windows
 
-Con Docker:
+Con Docker, también en modo TLS (`docker-compose.yml` monta `cert.pem` y
+`clave.pem` desde esta carpeta):
 
     docker compose up --build
 
 Comprobación:
 
-    curl http://localhost:8080/api/salud       # Linux y macOS
-    curl.exe http://localhost:8080/api/salud   # Windows
+    curl --cacert ca.pem https://localhost:8443/api/salud       # Linux y macOS
+    curl.exe --cacert ca.pem https://localhost:8443/api/salud   # Windows
 
 En PowerShell, `curl` es un alias de `Invoke-WebRequest` y no acepta las mismas
 opciones: hay que escribir `curl.exe`.
@@ -54,9 +60,9 @@ Para cambiar el puerto:
 
 | Entorno | Dirección base |
 |---|---|
-| Emulador de Android | `http://10.0.2.2:8080` |
-| Dispositivo físico en la misma red | `http://<IP_del_ordenador>:8080` |
-| Navegador del ordenador | `http://localhost:8080` |
+| Emulador de Android | `https://10.0.2.2:8443` |
+| Dispositivo físico en la misma red | `https://<IP_del_ordenador>:8443`, con el certificado emitido para esa IP (`EXTRA=<IP>`) |
+| Navegador del ordenador | `https://localhost:8443` |
 
 El emulador tiene su propia interfaz de red: `localhost` dentro del emulador es
 el propio emulador, no el ordenador. Por eso se usa `10.0.2.2`.
@@ -103,33 +109,38 @@ Ejemplo:
 
 ## Modo TLS (a partir de la práctica P3.2)
 
-El servidor arranca en HTTP sin cifrar por defecto. Para la práctica P3.2 se
-pasa a HTTPS con un certificado autofirmado.
+`generar_certificado.sh` crea una autoridad de laboratorio y dos certificados
+de servidor firmados por ella:
 
-    ./generar_certificado.sh
-    PUERTO=8443 CERT=cert.pem CLAVE=clave.pem uv run servidor.py
+| Fichero | Qué es | ¿En el repositorio? |
+|---|---|---|
+| `ca.pem` | La autoridad del laboratorio. La aplicación la lleva, solo en la variante de depuración, en `app/src/debug/res/raw/cert_laboratorio.pem` | Solo esa copia |
+| `ca-clave.pem` | Su clave privada; solo hace falta para emitir certificados | No |
+| `cert.pem`, `clave.pem` | El certificado que sirve el backend (hoja seguida de la autoridad) y su clave | No |
+| `cert_reserva.pem`, `clave_reserva.pem` | El certificado de reserva, firmado por la misma autoridad | No |
 
-El script genera `cert.pem` y `clave.pem`, y muestra por pantalla el resumen
-SHA-256 de la clave pública, que es exactamente el valor que hace falta para
-declarar el anclaje de certificados en la aplicación.
+Los certificados valen para `api.local`, `localhost`, `127.0.0.1` y `10.0.2.2`.
+El guion imprime al terminar el resumen SHA-256 de la clave pública de los dos
+certificados, que es lo que la aplicación ancla en su configuración de red.
 
-El certificado incluye como nombres válidos `api.local`, `localhost`, `127.0.0.1`
-y `10.0.2.2`, que es la dirección con la que el emulador llega al anfitrión. Para
-un dispositivo físico, añade la IP de tu ordenador:
+**No se vuelve a ejecutar.** Cada ejecución emite dos claves nuevas que no
+coinciden con las ancladas, y la aplicación deja de conectar: falla con
+`Pin verification failed`. Las claves privadas no están en el repositorio
+(`.gitignore` excluye `backend/*.pem`) y se comparten dentro del grupo, igual
+que `.env`. Si hubiera que cambiarlas, se sigue el procedimiento de rotación
+del apartado 3.4 del documento de diseño de seguridad.
 
-    EXTRA=192.168.1.50 ./generar_certificado.sh
+Para pasar a la clave de reserva sin publicar una versión de la aplicación:
 
-Comprobación desde el ordenador:
+    PUERTO=8443 CERT=cert_reserva.pem CLAVE=clave_reserva.pem uv run servidor.py
 
-    curl --cacert cert.pem --resolve api.local:8443:127.0.0.1 \
-         https://api.local:8443/api/salud
+Comprobación desde el ordenador, y la cadena completa que sirve el backend:
 
-Sin `--cacert`, la conexión debe fallar: el certificado es autofirmado y ninguna
-autoridad conocida lo respalda. Ese fallo es el comportamiento correcto.
+    curl --cacert ca.pem https://localhost:8443/api/salud
+    openssl s_client -showcerts -connect localhost:8443 </dev/null
 
-Para volver a arrancar en claro, basta con no definir las variables `CERT` y
-`CLAVE`. Conviene conservar ambos modos: la práctica P3.2 consiste precisamente
-en comparar uno con otro.
+Sin `--cacert`, la conexión debe fallar: ninguna autoridad del sistema respalda
+el certificado.
 
 ## Debilidades intencionadas
 
@@ -139,13 +150,13 @@ localizar. **No debe usarse fuera del aula.**
 
 | Debilidad | Dónde se trata |
 |---|---|
-| Todo el tráfico viaja en claro (modo por defecto) | P3.2 · sesión 3.5 |
+| Todo el tráfico viaja en claro (modo por defecto, que la aplicación ya no acepta) | P3.2 · sesión 3.5 |
 | Contraseñas almacenadas sin resumen ni sal | sesión 3.3 |
 | Token predecible: `base64(usuario:tiempo)` | Bloque IV |
 | El token no caduca ni se puede revocar | Bloque IV |
 | Sin límite de intentos de autenticación | Bloque IV |
 | El error distingue «usuario inexistente» de «contraseña incorrecta» | sesión 2.4 · Bloque IV |
-| El certificado del modo TLS es autofirmado | Aceptable en el laboratorio, nunca en producción |
+| El certificado del modo TLS lo firma una autoridad de laboratorio | Aceptable en el laboratorio, nunca en producción |
 | El registro confirma qué usuarios existen (409), no exige ninguna política de contraseñas y no limita el tamaño del selfie ni de las fotos | Bloque IV |
 | El contexto del grupo y las fotos llegan al modelo de IA: se pueden usar para inyectarle instrucciones (texto escrito en la foto, contexto manipulado) | Bloque IV |
 | En modo sin IA, cualquier foto se da por buena | Solo para desarrollo |
